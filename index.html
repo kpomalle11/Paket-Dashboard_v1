@@ -1,0 +1,2864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paket Production Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-top: 6px solid #1e40af;
+        }
+        
+        .header h1 {
+            color: #1e3a8a;
+            font-size: 32px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo {
+            color: #1e40af;
+            font-weight: 800;
+            font-size: 28px;
+        }
+        
+        .header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .updated {
+            color: #16a34a;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        
+        .goal-banner {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .toggle {
+            background: #f1f5f9;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            transition: all 0.3s;
+        }
+        
+        .toggle:hover {
+            background: #e2e8f0;
+        }
+        
+        .toggle span {
+            color: #1e40af;
+            font-weight: 600;
+        }
+        
+        .toggle-content {
+            display: none;
+            padding: 12px 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-top: 8px;
+            color: #475569;
+            font-size: 14px;
+        }
+        
+        .toggle-content.show {
+            display: block;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .label {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+        
+        .trend {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        .down { color: #dc2626; }
+        .up { color: #16a34a; }
+        
+        .chart-box {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e3a8a;
+            margin-bottom: 20px;
+        }
+        
+        .chart-subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: -12px;
+            margin-bottom: 16px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #475569;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        
+        td {
+            color: #1e293b;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .good {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .warn {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .bad {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .tip {
+            background: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .tip-good {
+            background: #f0fdf4;
+            border-left-color: #16a34a;
+        }
+        
+        .tip-warn {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        
+        .tip-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .tip-detail {
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .filter-box {
+            margin-bottom: 20px;
+        }
+        
+        .filter-box select {
+            padding: 12px;
+            font-size: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            min-width: 300px;
+        }
+        
+        .filter-box select:hover {
+            border-color: #3b82f6;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Login Screen Styles */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        #loginOverlay.hidden {
+            display: none;
+        }
+        
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-box h1 {
+            color: #1e3a8a;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .login-logo {
+            color: #1e40af;
+            font-weight: 800;
+        }
+        
+        .login-box p {
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        #loginBtn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        #loginBtn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .login-error {
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .login-error.show {
+            display: block;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h1><span class="login-logo">PAKET</span> Dashboard</h1>
+            <p>Please log in to access production data</p>
+            
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" autocomplete="username" required autofocus>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" autocomplete="current-password" required>
+                </div>
+                
+                <button type="submit" id="loginBtn">Login</button>
+                
+                <div class="login-error" id="loginError">❌ Invalid username or password</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="mainDashboard" style="display: none;">
+
+<div class="container">
+    <div class="header">
+        <h1><span class="logo">PAKET</span> Production Efficiency Dashboard</h1>
+        <p>Analysis Period: October 2025 - January 2026 | 471 Runs | 91 SKUs | 25 Lines</p>
+        <div class="updated">📅 Last Updated: January 25, 2026 at 4:57 PM CST</div>
+        <div class="goal-banner">🎯 Goal: ≥85% Efficiency | Weekly Focus: Jan 19-25, 2026</div>
+        <div class="toggle" onclick="toggleQuality()">
+            <span>📊 Data Quality</span>
+            <span id="toggleIcon">▼</span>
+        </div>
+        <div class="toggle-content" id="qualityContent">
+            <strong>Standardization:</strong> Lines: 33→25 | SKUs: 98→91<br>
+            Consolidated BTL variants, ELGIN variants, standardized DUKCAN/TRIPRO naming
+        </div>
+    </div>
+
+    <div class="metrics">
+        <div class="card">
+            <div class="label">Avg Efficiency</div>
+            <div class="value">79.8%</div>
+            <div class="trend down">↓ Oct: 84% → Jan: 76%</div>
+        </div>
+        <div class="card">
+            <div class="label">Last Week</div>
+            <div class="value">84.5%</div>
+            <div class="trend up">↑ Close to goal!</div>
+        </div>
+        <div class="card">
+            <div class="label">Lost Minutes</div>
+            <div class="value">22,787</div>
+            <div class="trend down">↑ 4,671 → 6,267/mo</div>
+        </div>
+        <div class="card">
+            <div class="label">Database</div>
+            <div class="value">91</div>
+            <div class="trend" style="color:#64748b">SKUs tracked</div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">Overview</button>
+        <button class="tab" onclick="switchTab('weekly')">Weekly Detail</button>
+        <button class="tab" onclick="switchTab('ops')">Operators</button>
+        <button class="tab" onclick="switchTab('tips')">Insights</button>
+        <button class="tab" onclick="switchTab('mgr')">Manager View</button>
+        <button class="tab" onclick="switchTab('historical')">Historical Analysis</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active">
+        <div class="chart-box">
+            <div class="chart-title">Data Source Information</div>
+            <div class="tip tip-good">
+                <div class="tip-title">📅 Data Collection: October 2025 - January 2026 (4 months)</div>
+                <div class="tip-detail">
+                    • <strong>Runs:</strong> 471 total | <strong>Lines:</strong> 25 tracked | <strong>SKUs:</strong> 91 analyzed | <strong>Recent:</strong> Week of Jan 19-25 (31 runs)
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="chart-box">
+                <div class="chart-title">Monthly Efficiency vs Goal</div>
+                <canvas id="monthlyEffChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Monthly Lost Minutes</div>
+                <div class="chart-subtitle">Hover to see % of total available time</div>
+                <canvas id="monthlyLostChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">Line Efficiency</div>
+            <canvas id="lineEffChart"></canvas>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">Line Run Counts</div>
+            <canvas id="lineRunsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Weekly Detail Tab -->
+    <div id="weekly" class="tab-content">
+        <div class="chart-box">
+            <div class="chart-title">Week of Jan 19-25, 2026 - Daily Performance</div>
+            <canvas id="weeklyEffChart"></canvas>
+        </div>
+        
+        <div class="grid-2">
+            <div class="chart-box">
+                <div class="chart-title">Daily Units Produced</div>
+                <canvas id="weeklyUnitsChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Total Labor Count Per Day</div>
+                <div class="chart-subtitle">Sum of all workers across all lines</div>
+                <canvas id="weeklyLaborChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">📊 SKUs Run This Week (31 runs)</div>
+            <table id="weeklySKUTable"></table>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">Individual Production Runs - Week of Jan 19-25, 2026</div>
+            <div class="chart-subtitle">Each bar = one run • Hover for SKU, units & efficiency • Color: Green ≥85%, Yellow 75-84%, Red <75%</div>
+            <canvas id="weeklyIndividualRunsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Operators Tab -->
+    <div id="ops" class="tab-content">
+        <div class="chart-box">
+            <div class="chart-title">All Operators (Min 5 Runs)</div>
+            <canvas id="operatorsChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <table id="operatorsTable"></table>
+        </div>
+    </div>
+
+    <!-- Insights Tab -->
+    <div id="tips" class="tab-content">
+        <div class="chart-box">
+            <div class="chart-title">🔧 Root Cause Analysis & Action Items</div>
+            
+            <div class="tip">
+                <div class="tip-title">1. Material Shortages ⭐ #1 Issue</div>
+                <div class="tip-detail">
+                    <strong>Frequency:</strong> Very High (20+ occurrences)<br>
+                    💡 <strong>Actions:</strong> (1) +20% min inventory, (2) 2-day lookahead scheduling, (3) Daily material meetings, (4) Buffer for top 10 SKUs
+                </div>
+            </div>
+            
+            <div class="tip">
+                <div class="tip-title">2. Pump Failures</div>
+                <div class="tip-detail">
+                    <strong>Frequency:</strong> High<br>
+                    💡 <strong>Actions:</strong> (1) Weekly PM, (2) Backup pump, (3) Operator training, (4) Track hours
+                </div>
+            </div>
+            
+            <div class="tip">
+                <div class="tip-title">3. Capper Problems</div>
+                <div class="tip-detail">
+                    <strong>Frequency:</strong> High<br>
+                    💡 <strong>Actions:</strong> (1) Root cause analysis, (2) Stock parts, (3) Monthly calibration
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">✅ Success Patterns</div>
+            <div class="tip tip-good">
+                <div class="tip-title">TRUFRE Series: Consistent 90%+</div>
+                <div class="tip-detail">Multiple SKUs performing excellently - audit for best practices</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manager View Tab -->
+    <div id="mgr" class="tab-content">
+        <div class="chart-box">
+            <div class="chart-title">📈 Plant Manager Recommendations</div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">1. SKU Rationalization</div>
+                <div class="tip-detail">
+                    Review bottom 10 performers. If &lt;70% efficiency persists, evaluate profitability vs complexity.
+                </div>
+            </div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">2. Focus on High-Volume Winners</div>
+                <div class="tip-detail">
+                    Top 15 SKUs = 48% of all runs. Ensure: (1) Dedicated line optimization, (2) PM priority, (3) Best operator assignments.
+                </div>
+            </div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">3. Historical Benchmarking</div>
+                <div class="tip-detail">
+                    Use max efficiency achieved for each SKU as "art of the possible" benchmark.
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">Highest Downtime SKUs</div>
+            <canvas id="downtimeChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Historical Analysis Tab -->
+    <div id="historical" class="tab-content">
+        <div class="grid-2">
+            <div class="chart-box">
+                <div class="chart-title">🔍 SKU Historical Performance Lookup</div>
+                <div class="chart-subtitle">All 91 SKUs available - select to view detailed analysis</div>
+                <div class="filter-box">
+                    <select id="skuFilter" onchange="filterSKU()">
+                        <option value="">-- Select SKU --</option>
+                    </select>
+                </div>
+                <div id="skuDetails"></div>
+            </div>
+            
+            <div class="chart-box">
+                <div class="chart-title">🏭 Line/Machine Historical Performance Lookup</div>
+                <div class="chart-subtitle">All 25 production lines - select to view detailed analysis</div>
+                <div class="filter-box">
+                    <select id="lineFilter" onchange="filterLine()">
+                        <option value="">-- Select Line --</option>
+                    </select>
+                </div>
+                <div id="lineDetails"></div>
+            </div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="chart-box">
+                <div class="chart-title">Top 10 Historical Performers (SKUs)</div>
+                <div class="chart-subtitle">Min 5 runs, sorted by avg efficiency</div>
+                <table id="topHistTable"></table>
+            </div>
+            
+            <div class="chart-box">
+                <div class="chart-title">Bottom 10 Historical Performers (SKUs)</div>
+                <div class="chart-subtitle">Chronic underperformers requiring attention</div>
+                <table id="botHistTable"></table>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">💡 Historical vs Current Performance Analysis</div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">✅ Improving SKUs (Current > Historical Avg)</div>
+                <div class="tip-detail" id="improvingList"></div>
+            </div>
+            
+            <div class="tip">
+                <div class="tip-title">⚠️ Declining SKUs (Current < Historical Avg)</div>
+                <div class="tip-detail" id="decliningList"></div>
+            </div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">🏭 Best Performing Lines (Historical Avg ≥85%)</div>
+                <div class="tip-detail" id="bestLinesList"></div>
+            </div>
+            
+            <div class="tip">
+                <div class="tip-title">🔧 Lines Needing Attention (Historical Avg <75%)</div>
+                <div class="tip-detail" id="problemLinesList"></div>
+            </div>
+        </div>
+        
+        <div class="chart-box">
+            <div class="chart-title">📊 Key Historical Insights</div>
+            
+            <div class="tip tip-warn">
+                <div class="tip-title">Consistency Leaders (Low Variability)</div>
+                <div class="tip-detail">
+                    <strong>DAPBAB-01V1, TRUFRE-04, TRUFRE-06</strong> - Narrow speed ranges and consistent efficiency. Use as models for process standardization.
+                </div>
+            </div>
+            
+            <div class="tip">
+                <div class="tip-title">Chronic Problems Requiring Investment</div>
+                <div class="tip-detail">
+                    <strong>DUKCAN-17</strong> (22 runs, 58% avg, declining to 49% recently) - Never performed well. Consider discontinue or major process redesign.
+                </div>
+            </div>
+            
+            <div class="tip tip-good">
+                <div class="tip-title">Volume + Performance = Revenue Drivers</div>
+                <div class="tip-detail">
+                    <strong>DAPBAB-01V1</strong> (24 runs, 93%, 467k units) and <strong>TRUFRE-01</strong> (40 runs, 402k units) - Prioritize capacity expansion.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard JavaScript -->
+<script>
+const allData={"skus":{"BOGGIE-01":{"runs":2,"avg_eff":91.0,"min_eff":86.0,"max_eff":96.0,"total_output":6174,"avg_output":3087,"max_output":4224,"total_lost_mins":60.0,"avg_speed":32.0,"min_speed":32.0,"max_speed":32.0,"avg_manning":6.0,"top_lines":"BOTTLE LINE II"},"BOOGIE 02":{"runs":1,"avg_eff":103.0,"min_eff":103.0,"max_eff":103.0,"total_output":9000,"avg_output":9000,"max_output":9000,"total_lost_mins":-7.3,"avg_speed":38.0,"min_speed":38.0,"max_speed":38.0,"avg_manning":3.0,"top_lines":"B4"},"BOOGIE-01":{"runs":13,"avg_eff":89.0,"min_eff":65.0,"max_eff":107.0,"total_output":115428,"avg_output":8879,"max_output":12372,"total_lost_mins":398.6,"avg_speed":31.1,"min_speed":30.0,"max_speed":32.0,"avg_manning":5.8,"top_lines":"BOTTLE LINE, BOTTLE LINE II"},"BOOGIE-02":{"runs":13,"avg_eff":93.0,"min_eff":57.0,"max_eff":121.0,"total_output":125840,"avg_output":9680,"max_output":15840,"total_lost_mins":139.9,"avg_speed":34.2,"min_speed":30.0,"max_speed":40.0,"avg_manning":3.0,"top_lines":"B4"},"BOOGIE01":{"runs":1,"avg_eff":77.0,"min_eff":77.0,"max_eff":77.0,"total_output":7632,"avg_output":7632,"max_output":7632,"total_lost_mins":77.1,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":5.0,"top_lines":"BOTTLE LINE"},"CHIGEL-04":{"runs":2,"avg_eff":84.0,"min_eff":67.0,"max_eff":100.0,"total_output":26550,"avg_output":13275,"max_output":14000,"total_lost_mins":125.4,"avg_speed":49.0,"min_speed":49.0,"max_speed":49.0,"avg_manning":2.0,"top_lines":"B3"},"CHIGEL-05":{"runs":4,"avg_eff":82.0,"min_eff":63.0,"max_eff":97.0,"total_output":52470,"avg_output":13117,"max_output":16000,"total_lost_mins":219.2,"avg_speed":54.0,"min_speed":49.0,"max_speed":59.0,"avg_manning":2.0,"top_lines":"B3"},"CHIGEL-07":{"runs":3,"avg_eff":99.0,"min_eff":81.0,"max_eff":109.0,"total_output":54160,"avg_output":18053,"max_output":24000,"total_lost_mins":0.0,"avg_speed":59.0,"min_speed":59.0,"max_speed":59.0,"avg_manning":2.0,"top_lines":"B3"},"DAPBAB 01V1":{"runs":1,"avg_eff":109.0,"min_eff":109.0,"max_eff":109.0,"total_output":28350,"avg_output":28350,"max_output":28350,"total_lost_mins":-34.4,"avg_speed":68.0,"min_speed":68.0,"max_speed":68.0,"avg_manning":2.0,"top_lines":"P1"},"DAPBAB 04V2":{"runs":1,"avg_eff":83.0,"min_eff":83.0,"max_eff":83.0,"total_output":1520,"avg_output":1520,"max_output":1520,"total_lost_mins":39.5,"avg_speed":8.0,"min_speed":8.0,"max_speed":8.0,"avg_manning":2.0,"top_lines":"PSG"},"DAPBAB-01V1":{"runs":24,"avg_eff":93.0,"min_eff":75.0,"max_eff":146.0,"total_output":466870,"avg_output":19452,"max_output":27620,"total_lost_mins":614.5,"avg_speed":68.0,"min_speed":68.0,"max_speed":68.0,"avg_manning":2.0,"top_lines":"P2, P1, PP III"},"DAPBAB-01v1":{"runs":1,"avg_eff":40.0,"min_eff":40.0,"max_eff":40.0,"total_output":4900,"avg_output":4900,"max_output":4900,"total_lost_mins":106.4,"avg_speed":68.0,"min_speed":68.0,"max_speed":68.0,"avg_manning":2.0,"top_lines":"P2"},"DAPBAB-04V2":{"runs":32,"avg_eff":85.0,"min_eff":55.0,"max_eff":106.0,"total_output":70312,"avg_output":2197,"max_output":3792,"total_lost_mins":1272.2,"avg_speed":10.8,"min_speed":7.0,"max_speed":20.0,"avg_manning":3.3,"top_lines":"PSG","recent_runs":7,"recent_eff":84.0},"DAPBAB-04v2":{"runs":2,"avg_eff":89.0,"min_eff":85.0,"max_eff":93.0,"total_output":6835,"avg_output":3417,"max_output":4963,"total_lost_mins":38.8,"avg_speed":12.0,"min_speed":10.0,"max_speed":14.0,"avg_manning":3.5,"top_lines":"PSG","recent_runs":1,"recent_eff":85.0},"DAPBAB-05":{"runs":5,"avg_eff":75.0,"min_eff":59.0,"max_eff":93.0,"total_output":16326,"avg_output":3265,"max_output":4938,"total_lost_mins":295.8,"avg_speed":16.4,"min_speed":14.0,"max_speed":18.0,"avg_manning":6.0,"top_lines":"ELGIN II"},"DAPBAB-0V2":{"runs":2,"avg_eff":75.0,"min_eff":67.0,"max_eff":82.0,"total_output":3200,"avg_output":1600,"max_output":1696,"total_lost_mins":128.9,"avg_speed":9.0,"min_speed":9.0,"max_speed":9.0,"avg_manning":2.5,"top_lines":"PSG , PSG","recent_runs":2,"recent_eff":75.0},"DAPBAB-18":{"runs":5,"avg_eff":78.0,"min_eff":56.0,"max_eff":92.0,"total_output":15994,"avg_output":3198,"max_output":5510,"total_lost_mins":377.0,"avg_speed":18.0,"min_speed":18.0,"max_speed":18.0,"avg_manning":6.6,"top_lines":"ELGIN II","recent_runs":1,"recent_eff":76.0},"DAPBAB-21":{"runs":4,"avg_eff":60.0,"min_eff":44.0,"max_eff":78.0,"total_output":12374,"avg_output":3093,"max_output":5440,"total_lost_mins":351.4,"avg_speed":24.0,"min_speed":24.0,"max_speed":24.0,"avg_manning":6.0,"top_lines":"ELGIN II"},"DAPBAB-26":{"runs":6,"avg_eff":70.0,"min_eff":48.0,"max_eff":89.0,"total_output":9020,"avg_output":1503,"max_output":3844,"total_lost_mins":269.3,"avg_speed":10.5,"min_speed":9.0,"max_speed":14.0,"avg_manning":3.3,"top_lines":"PSG","recent_runs":2,"recent_eff":49.0},"DAPBAN-04V2":{"runs":1,"avg_eff":83.0,"min_eff":83.0,"max_eff":83.0,"total_output":2848,"avg_output":2848,"max_output":2848,"total_lost_mins":66.1,"avg_speed":9.0,"min_speed":9.0,"max_speed":9.0,"avg_manning":3.0,"top_lines":"PSG"},"DAPBAN-05":{"runs":1,"avg_eff":90.0,"min_eff":90.0,"max_eff":90.0,"total_output":1924,"avg_output":1924,"max_output":1924,"total_lost_mins":15.6,"avg_speed":14.0,"min_speed":14.0,"max_speed":14.0,"avg_manning":6.0,"top_lines":"ELGIN II"},"DAPBAP-04V2":{"runs":1,"avg_eff":91.0,"min_eff":91.0,"max_eff":91.0,"total_output":1944,"avg_output":1944,"max_output":1944,"total_lost_mins":67.6,"avg_speed":10.0,"min_speed":10.0,"max_speed":10.0,"avg_manning":3.0,"top_lines":"PSG","recent_runs":1,"recent_eff":91.0},"DUKCAN -11":{"runs":1,"avg_eff":99.0,"min_eff":99.0,"max_eff":99.0,"total_output":11373,"avg_output":11373,"max_output":11373,"total_lost_mins":3.4,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":7.0,"top_lines":"ELGIN I"},"DUKCAN-01V1":{"runs":7,"avg_eff":95.0,"min_eff":88.0,"max_eff":102.0,"total_output":65753,"avg_output":9393,"max_output":15876,"total_lost_mins":273.2,"avg_speed":28.1,"min_speed":20.0,"max_speed":47.0,"avg_manning":6.9,"top_lines":"ELGIN I, KALIX II","recent_runs":1,"recent_eff":88.0},"DUKCAN-02V1":{"runs":1,"avg_eff":NaN,"min_eff":NaN,"max_eff":NaN,"total_output":0,"avg_output":0,"max_output":0,"total_lost_mins":0.0,"avg_speed":22.0,"min_speed":22.0,"max_speed":22.0,"avg_manning":8.0,"top_lines":"ELGIN I"},"DUKCAN-02v1":{"runs":4,"avg_eff":86.0,"min_eff":77.0,"max_eff":99.0,"total_output":19948,"avg_output":4987,"max_output":6697,"total_lost_mins":99.8,"avg_speed":26.5,"min_speed":22.0,"max_speed":30.0,"avg_manning":7.2,"top_lines":"ELGIN I","recent_runs":2,"recent_eff":84.0},"DUKCAN-04V1":{"runs":3,"avg_eff":87.0,"min_eff":72.0,"max_eff":96.0,"total_output":28160,"avg_output":9386,"max_output":11248,"total_lost_mins":257.5,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":6.0,"top_lines":"KALIX II","recent_runs":3,"recent_eff":87.0},"DUKCAN-05":{"runs":5,"avg_eff":81.0,"min_eff":40.0,"max_eff":102.0,"total_output":20840,"avg_output":4168,"max_output":8593,"total_lost_mins":106.7,"avg_speed":22.0,"min_speed":22.0,"max_speed":22.0,"avg_manning":7.2,"top_lines":"ELGIN I"},"DUKCAN-05V1":{"runs":11,"avg_eff":92.0,"min_eff":65.0,"max_eff":113.0,"total_output":88592,"avg_output":8053,"max_output":12912,"total_lost_mins":218.3,"avg_speed":27.8,"min_speed":22.0,"max_speed":30.0,"avg_manning":7.9,"top_lines":"ELGIN I"},"DUKCAN-07V1":{"runs":8,"avg_eff":70.0,"min_eff":28.0,"max_eff":85.0,"total_output":76819,"avg_output":9602,"max_output":13093,"total_lost_mins":676.6,"avg_speed":44.0,"min_speed":44.0,"max_speed":44.0,"avg_manning":6.0,"top_lines":"KALIX I"},"DUKCAN-07v1":{"runs":1,"avg_eff":79.0,"min_eff":79.0,"max_eff":79.0,"total_output":13251,"avg_output":13251,"max_output":13251,"total_lost_mins":81.3,"avg_speed":44.0,"min_speed":44.0,"max_speed":44.0,"avg_manning":6.0,"top_lines":"KALIX I"},"DUKCAN-08":{"runs":1,"avg_eff":78.0,"min_eff":78.0,"max_eff":78.0,"total_output":4362,"avg_output":4362,"max_output":4362,"total_lost_mins":41.6,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":8.0,"top_lines":"REB"},"DUKCAN-08v1":{"runs":2,"avg_eff":66.0,"min_eff":59.0,"max_eff":73.0,"total_output":6483,"avg_output":3241,"max_output":5319,"total_lost_mins":107.7,"avg_speed":26.0,"min_speed":26.0,"max_speed":26.0,"avg_manning":7.0,"top_lines":"ELGIN I","recent_runs":2,"recent_eff":66.0},"DUKCAN-10":{"runs":1,"avg_eff":117.0,"min_eff":117.0,"max_eff":117.0,"total_output":6585,"avg_output":6585,"max_output":6585,"total_lost_mins":-22.2,"avg_speed":44.0,"min_speed":44.0,"max_speed":44.0,"avg_manning":6.0,"top_lines":"KALIX I"},"DUKCAN-10V1":{"runs":3,"avg_eff":83.0,"min_eff":70.0,"max_eff":91.0,"total_output":29706,"avg_output":9902,"max_output":14905,"total_lost_mins":136.6,"avg_speed":44.0,"min_speed":44.0,"max_speed":44.0,"avg_manning":6.0,"top_lines":"KALIX I"},"DUKCAN-10v1":{"runs":2,"avg_eff":88.0,"min_eff":75.0,"max_eff":100.0,"total_output":23614,"avg_output":11807,"max_output":16893,"total_lost_mins":49.8,"avg_speed":44.0,"min_speed":44.0,"max_speed":44.0,"avg_manning":5.5,"top_lines":"KALIX I"},"DUKCAN-11":{"runs":7,"avg_eff":92.0,"min_eff":82.0,"max_eff":101.0,"total_output":66970,"avg_output":9567,"max_output":11599,"total_lost_mins":176.4,"avg_speed":32.4,"min_speed":30.0,"max_speed":47.0,"avg_manning":7.0,"top_lines":"ELGIN I, KALIX II","recent_runs":4,"recent_eff":95.0},"DUKCAN-12":{"runs":4,"avg_eff":58.0,"min_eff":39.0,"max_eff":75.0,"total_output":26005,"avg_output":6501,"max_output":11484,"total_lost_mins":387.0,"avg_speed":45.2,"min_speed":40.0,"max_speed":47.0,"avg_manning":5.2,"top_lines":"KALIX II"},"DUKCAN-14":{"runs":7,"avg_eff":82.0,"min_eff":42.0,"max_eff":103.0,"total_output":49674,"avg_output":7096,"max_output":11772,"total_lost_mins":197.2,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":7.3,"top_lines":"ELGIN I"},"DUKCAN-17":{"runs":22,"avg_eff":58.0,"min_eff":36.0,"max_eff":81.0,"total_output":110580,"avg_output":5026,"max_output":10303,"total_lost_mins":2263.4,"avg_speed":34.9,"min_speed":25.0,"max_speed":42.0,"avg_manning":5.9,"top_lines":"REB","recent_runs":3,"recent_eff":49.0},"DUKCAN-18":{"runs":14,"avg_eff":69.0,"min_eff":27.0,"max_eff":97.0,"total_output":115817,"avg_output":8272,"max_output":15948,"total_lost_mins":1104.6,"avg_speed":46.9,"min_speed":45.0,"max_speed":47.0,"avg_manning":5.6,"top_lines":"KALIX II","recent_runs":3,"recent_eff":59.0},"DUKCAN-19":{"runs":4,"avg_eff":69.0,"min_eff":63.0,"max_eff":85.0,"total_output":32922,"avg_output":8230,"max_output":15192,"total_lost_mins":268.5,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":5.8,"top_lines":"KALIX II"},"DUKCAN-20":{"runs":9,"avg_eff":76.0,"min_eff":62.0,"max_eff":99.0,"total_output":65706,"avg_output":7300,"max_output":10607,"total_lost_mins":668.0,"avg_speed":30.9,"min_speed":30.0,"max_speed":34.0,"avg_manning":8.0,"top_lines":"ELGIN I, ELGIN II","recent_runs":7,"recent_eff":75.0},"ENXZSOL-02":{"runs":1,"avg_eff":90.0,"min_eff":90.0,"max_eff":90.0,"total_output":19232,"avg_output":19232,"max_output":19232,"total_lost_mins":39.1,"avg_speed":56.0,"min_speed":56.0,"max_speed":56.0,"avg_manning":3.0,"top_lines":"P1"},"ENZSOL-01":{"runs":4,"avg_eff":90.0,"min_eff":87.0,"max_eff":99.0,"total_output":67600,"avg_output":16900,"max_output":27400,"total_lost_mins":77.8,"avg_speed":74.0,"min_speed":68.0,"max_speed":84.0,"avg_manning":2.2,"top_lines":"P1, P2"},"ENZSOL-02":{"runs":7,"avg_eff":90.0,"min_eff":72.0,"max_eff":101.0,"total_output":133056,"avg_output":19008,"max_output":21120,"total_lost_mins":263.2,"avg_speed":56.0,"min_speed":56.0,"max_speed":56.0,"avg_manning":2.9,"top_lines":"P1, P2, PP I"},"FUCHSL 11":{"runs":2,"avg_eff":26.0,"min_eff":21.0,"max_eff":31.0,"total_output":3000,"avg_output":1500,"max_output":2016,"total_lost_mins":354.1,"avg_speed":23.0,"min_speed":23.0,"max_speed":23.0,"avg_manning":3.0,"top_lines":"KENTEX","recent_runs":2,"recent_eff":26.0},"FUCHSL-06":{"runs":4,"avg_eff":43.0,"min_eff":10.0,"max_eff":88.0,"total_output":3252,"avg_output":813,"max_output":1620,"total_lost_mins":494.0,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"avg_manning":4.8,"top_lines":"SINGLE SHOT"},"FUCHSL-07":{"runs":2,"avg_eff":52.0,"min_eff":26.0,"max_eff":78.0,"total_output":3120,"avg_output":1560,"max_output":2640,"total_lost_mins":173.5,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"avg_manning":5.0,"top_lines":"SINGLE SHOT"},"FUCHSL-11":{"runs":5,"avg_eff":51.0,"min_eff":21.0,"max_eff":98.0,"total_output":9866,"avg_output":1973,"max_output":2568,"total_lost_mins":201.1,"avg_speed":26.4,"min_speed":23.0,"max_speed":40.0,"avg_manning":3.0,"top_lines":"KENTEX","recent_runs":5,"recent_eff":51.0},"FUCSH-11":{"runs":1,"avg_eff":58.0,"min_eff":58.0,"max_eff":58.0,"total_output":1689,"avg_output":1689,"max_output":1689,"total_lost_mins":54.1,"avg_speed":23.0,"min_speed":23.0,"max_speed":23.0,"avg_manning":3.0,"top_lines":"KENTEX","recent_runs":1,"recent_eff":58.0},"MSEGRO-06":{"runs":1,"avg_eff":47.0,"min_eff":47.0,"max_eff":47.0,"total_output":5286,"avg_output":5286,"max_output":5286,"total_lost_mins":125.5,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":6.0,"top_lines":"KALIX II"},"ODEBEA -02":{"runs":1,"avg_eff":26.0,"min_eff":26.0,"max_eff":26.0,"total_output":1692,"avg_output":1692,"max_output":1692,"total_lost_mins":113.7,"avg_speed":43.0,"min_speed":43.0,"max_speed":43.0,"avg_manning":6.0,"top_lines":"KALIX I"},"ODEBEA-02 (TRIAL)":{"runs":1,"avg_eff":32.0,"min_eff":32.0,"max_eff":32.0,"total_output":768,"avg_output":768,"max_output":768,"total_lost_mins":34.7,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":5.0,"top_lines":"KALIX II"},"ODEDA-02":{"runs":2,"avg_eff":64.0,"min_eff":50.0,"max_eff":77.0,"total_output":17394,"avg_output":8697,"max_output":10950,"total_lost_mins":224.5,"avg_speed":43.0,"min_speed":43.0,"max_speed":43.0,"avg_manning":5.5,"top_lines":"KALIX II"},"ODEDEA-02":{"runs":1,"avg_eff":81.0,"min_eff":81.0,"max_eff":81.0,"total_output":9654,"avg_output":9654,"max_output":9654,"total_lost_mins":49.6,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":6.0,"top_lines":"KALIX II"},"OKECOM-07":{"runs":5,"avg_eff":66.0,"min_eff":52.0,"max_eff":83.0,"total_output":32340,"avg_output":6468,"max_output":9864,"total_lost_mins":419.0,"avg_speed":35.0,"min_speed":35.0,"max_speed":35.0,"avg_manning":6.4,"top_lines":"REB"},"OKECOM-08":{"runs":7,"avg_eff":74.0,"min_eff":50.0,"max_eff":89.0,"total_output":46728,"avg_output":6675,"max_output":9876,"total_lost_mins":413.6,"avg_speed":31.4,"min_speed":30.0,"max_speed":35.0,"avg_manning":6.4,"top_lines":"REB"},"OKECOM-11":{"runs":2,"avg_eff":83.0,"min_eff":78.0,"max_eff":89.0,"total_output":8566,"avg_output":4283,"max_output":4344,"total_lost_mins":55.3,"avg_speed":32.0,"min_speed":32.0,"max_speed":32.0,"avg_manning":8.0,"top_lines":"ELGIN I"},"PACTEC-01G":{"runs":11,"avg_eff":70.0,"min_eff":29.0,"max_eff":93.0,"total_output":26075,"avg_output":2370,"max_output":4275,"total_lost_mins":588.1,"avg_speed":12.7,"min_speed":12.0,"max_speed":16.0,"avg_manning":2.9,"top_lines":"P3"},"PACTEC-05G":{"runs":3,"avg_eff":45.0,"min_eff":18.0,"max_eff":98.0,"total_output":2880,"avg_output":960,"max_output":1800,"total_lost_mins":433.6,"avg_speed":11.3,"min_speed":10.0,"max_speed":12.0,"avg_manning":2.0,"top_lines":"P3, PD3"},"PACTEC-06G":{"runs":5,"avg_eff":47.0,"min_eff":9.0,"max_eff":102.0,"total_output":4318,"avg_output":863,"max_output":1944,"total_lost_mins":702.7,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"avg_manning":2.0,"top_lines":"P3, PD3, PP III"},"PURPRO-01":{"runs":5,"avg_eff":60.0,"min_eff":39.0,"max_eff":84.0,"total_output":18523,"avg_output":3704,"max_output":7240,"total_lost_mins":400.8,"avg_speed":26.0,"min_speed":26.0,"max_speed":26.0,"avg_manning":2.4,"top_lines":"B5","recent_runs":5,"recent_eff":60.0},"RAWSUG -02":{"runs":1,"avg_eff":107.0,"min_eff":107.0,"max_eff":107.0,"total_output":19600,"avg_output":19600,"max_output":19600,"total_lost_mins":-25.8,"avg_speed":48.0,"min_speed":48.0,"max_speed":48.0,"avg_manning":2.0,"top_lines":"B4","recent_runs":1,"recent_eff":107.0},"RAWSUG 01":{"runs":3,"avg_eff":71.0,"min_eff":61.0,"max_eff":76.0,"total_output":18600,"avg_output":6200,"max_output":7600,"total_lost_mins":190.8,"avg_speed":46.0,"min_speed":40.0,"max_speed":49.0,"avg_manning":2.0,"top_lines":"B5","recent_runs":3,"recent_eff":71.0},"RAWSUG 02":{"runs":8,"avg_eff":90.0,"min_eff":59.0,"max_eff":107.0,"total_output":119215,"avg_output":14901,"max_output":18400,"total_lost_mins":202.8,"avg_speed":47.2,"min_speed":45.0,"max_speed":48.0,"avg_manning":2.0,"top_lines":"B4","recent_runs":8,"recent_eff":90.0},"RAWSUG- 02":{"runs":1,"avg_eff":109.0,"min_eff":109.0,"max_eff":109.0,"total_output":19200,"avg_output":19200,"max_output":19200,"total_lost_mins":-34.5,"avg_speed":48.0,"min_speed":48.0,"max_speed":48.0,"avg_manning":2.0,"top_lines":"B4","recent_runs":1,"recent_eff":109.0},"RAWSUG-02":{"runs":3,"avg_eff":89.0,"min_eff":52.0,"max_eff":122.0,"total_output":39605,"avg_output":13201,"max_output":22400,"total_lost_mins":7.9,"avg_speed":48.0,"min_speed":48.0,"max_speed":48.0,"avg_manning":2.0,"top_lines":"B4","recent_runs":3,"recent_eff":89.0},"SYNTEC-03":{"runs":2,"avg_eff":80.0,"min_eff":72.0,"max_eff":87.0,"total_output":4650,"avg_output":2325,"max_output":3100,"total_lost_mins":101.4,"avg_speed":14.0,"min_speed":14.0,"max_speed":14.0,"avg_manning":3.0,"top_lines":"500"},"TREUFRE-09":{"runs":1,"avg_eff":95.0,"min_eff":95.0,"max_eff":95.0,"total_output":10500,"avg_output":10500,"max_output":10500,"total_lost_mins":20.4,"avg_speed":29.0,"min_speed":29.0,"max_speed":29.0,"avg_manning":2.0,"top_lines":"B1"},"TRIPRO-01":{"runs":6,"avg_eff":71.0,"min_eff":56.0,"max_eff":87.0,"total_output":78002,"avg_output":13000,"max_output":15900,"total_lost_mins":691.6,"avg_speed":58.7,"min_speed":47.0,"max_speed":61.0,"avg_manning":3.0,"top_lines":"B6","recent_runs":6,"recent_eff":71.0},"TRIPRO-01V1":{"runs":7,"avg_eff":89.0,"min_eff":75.0,"max_eff":102.0,"total_output":116100,"avg_output":16585,"max_output":21000,"total_lost_mins":219.4,"avg_speed":57.0,"min_speed":53.0,"max_speed":60.0,"avg_manning":3.0,"top_lines":"B6"},"TRIPRO01V1":{"runs":1,"avg_eff":111.0,"min_eff":111.0,"max_eff":111.0,"total_output":23700,"avg_output":23700,"max_output":23700,"total_lost_mins":-38.0,"avg_speed":60.0,"min_speed":60.0,"max_speed":60.0,"avg_manning":3.0,"top_lines":"B6"},"TRUFRE -06":{"runs":1,"avg_eff":97.0,"min_eff":97.0,"max_eff":97.0,"total_output":9600,"avg_output":9600,"max_output":9600,"total_lost_mins":11.5,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1"},"TRUFRE 05":{"runs":1,"avg_eff":76.0,"min_eff":76.0,"max_eff":76.0,"total_output":8400,"avg_output":8400,"max_output":8400,"total_lost_mins":92.8,"avg_speed":29.0,"min_speed":29.0,"max_speed":29.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":1,"recent_eff":76.0},"TRUFRE 06":{"runs":1,"avg_eff":102.0,"min_eff":102.0,"max_eff":102.0,"total_output":11700,"avg_output":11700,"max_output":11700,"total_lost_mins":-7.5,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":1,"recent_eff":102.0},"TRUFRE 11":{"runs":1,"avg_eff":90.0,"min_eff":90.0,"max_eff":90.0,"total_output":7600,"avg_output":7600,"max_output":7600,"total_lost_mins":0.0,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":1,"recent_eff":90.0},"TRUFRE--01":{"runs":1,"avg_eff":73.0,"min_eff":73.0,"max_eff":73.0,"total_output":11300,"avg_output":11300,"max_output":11300,"total_lost_mins":91.1,"avg_speed":47.0,"min_speed":47.0,"max_speed":47.0,"avg_manning":3.0,"top_lines":"B6"},"TRUFRE-01":{"runs":40,"avg_eff":78.0,"min_eff":31.0,"max_eff":108.0,"total_output":402000,"avg_output":10050,"max_output":18200,"total_lost_mins":1807.6,"avg_speed":44.0,"min_speed":29.0,"max_speed":53.0,"avg_manning":3.0,"top_lines":"B6, TRUFRE-01, B1","recent_runs":9,"recent_eff":68.0},"TRUFRE-01V1":{"runs":1,"avg_eff":87.0,"min_eff":87.0,"max_eff":87.0,"total_output":11600,"avg_output":11600,"max_output":11600,"total_lost_mins":47.5,"avg_speed":36.0,"min_speed":36.0,"max_speed":36.0,"avg_manning":3.0,"top_lines":"B6"},"TRUFRE-04":{"runs":14,"avg_eff":93.0,"min_eff":71.0,"max_eff":107.0,"total_output":121800,"avg_output":8700,"max_output":11900,"total_lost_mins":283.9,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1"},"TRUFRE-05":{"runs":13,"avg_eff":91.0,"min_eff":69.0,"max_eff":109.0,"total_output":99000,"avg_output":7615,"max_output":12300,"total_lost_mins":300.3,"avg_speed":29.8,"min_speed":29.0,"max_speed":32.0,"avg_manning":2.1,"top_lines":"B1","recent_runs":4,"recent_eff":81.0},"TRUFRE-06":{"runs":15,"avg_eff":95.0,"min_eff":82.0,"max_eff":109.0,"total_output":124300,"avg_output":8286,"max_output":11700,"total_lost_mins":146.6,"avg_speed":28.9,"min_speed":25.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":5,"recent_eff":97.0},"TRUFRE-08":{"runs":5,"avg_eff":89.0,"min_eff":73.0,"max_eff":98.0,"total_output":38500,"avg_output":7700,"max_output":10700,"total_lost_mins":148.6,"avg_speed":28.8,"min_speed":28.0,"max_speed":29.0,"avg_manning":2.0,"top_lines":"B1"},"TRUFRE-09":{"runs":2,"avg_eff":74.0,"min_eff":61.0,"max_eff":87.0,"total_output":10500,"avg_output":5250,"max_output":9600,"total_lost_mins":71.4,"avg_speed":29.0,"min_speed":29.0,"max_speed":29.0,"avg_manning":2.0,"top_lines":"B1"},"TRUFRE-11":{"runs":3,"avg_eff":74.0,"min_eff":46.0,"max_eff":92.0,"total_output":6200,"avg_output":2066,"max_output":3500,"total_lost_mins":148.0,"avg_speed":30.0,"min_speed":30.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":3,"recent_eff":74.0},"TRUFRE-12":{"runs":5,"avg_eff":59.0,"min_eff":38.0,"max_eff":73.0,"total_output":29389,"avg_output":5877,"max_output":9081,"total_lost_mins":489.4,"avg_speed":34.8,"min_speed":30.0,"max_speed":36.0,"avg_manning":3.0,"top_lines":"B6"},"TRUFRE-13":{"runs":7,"avg_eff":85.0,"min_eff":60.0,"max_eff":97.0,"total_output":55300,"avg_output":7900,"max_output":12300,"total_lost_mins":265.1,"avg_speed":31.7,"min_speed":29.0,"max_speed":33.0,"avg_manning":2.0,"top_lines":"B1"},"TRUFRE-14":{"runs":12,"avg_eff":91.0,"min_eff":8.0,"max_eff":110.0,"total_output":96500,"avg_output":8041,"max_output":12500,"total_lost_mins":446.1,"avg_speed":29.6,"min_speed":29.0,"max_speed":30.0,"avg_manning":2.0,"top_lines":"B1","recent_runs":4,"recent_eff":97.0},"TRUFRE-15":{"runs":3,"avg_eff":83.0,"min_eff":68.0,"max_eff":96.0,"total_output":24854,"avg_output":8284,"max_output":14792,"total_lost_mins":114.2,"avg_speed":46.0,"min_speed":46.0,"max_speed":46.0,"avg_manning":5.7,"top_lines":"BOTTLE LINE"},"TRUFRE-16":{"runs":2,"avg_eff":83.0,"min_eff":82.0,"max_eff":84.0,"total_output":3570,"avg_output":1785,"max_output":2310,"total_lost_mins":59.5,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"avg_manning":3.0,"top_lines":"PSG"}},"lines":{"500":{"runs":2,"avg_eff":80.0,"min_eff":72.0,"max_eff":87.0,"total_output":4650,"total_lost_mins":101.4,"avg_speed":14.0,"min_speed":14.0,"max_speed":14.0,"top_skus":"SYNTEC-03"},"B1":{"runs":77,"avg_eff":90.0,"min_eff":8.0,"max_eff":110.0,"total_output":607900,"total_lost_mins":2033.9,"avg_speed":29.7,"min_speed":25.0,"max_speed":33.0,"top_skus":"TRUFRE-06, TRUFRE-04, TRUFRE-05","recent_runs":20,"recent_eff":88.0},"B3":{"runs":9,"avg_eff":88.0,"min_eff":63.0,"max_eff":109.0,"total_output":133180,"total_lost_mins":344.7,"avg_speed":54.6,"min_speed":49.0,"max_speed":59.0,"top_skus":"CHIGEL-05, CHIGEL-07, CHIGEL-04"},"B4":{"runs":27,"avg_eff":93.0,"min_eff":52.0,"max_eff":122.0,"total_output":332460,"total_lost_mins":282.9,"avg_speed":40.8,"min_speed":30.0,"max_speed":48.0,"top_skus":"BOOGIE-02, RAWSUG 02, RAWSUG-02","recent_runs":13,"recent_eff":92.0},"B5":{"runs":8,"avg_eff":64.0,"min_eff":39.0,"max_eff":84.0,"total_output":37123,"total_lost_mins":591.6,"avg_speed":33.5,"min_speed":26.0,"max_speed":49.0,"top_skus":"PURPRO-01, RAWSUG 01","recent_runs":8,"recent_eff":64.0},"B6":{"runs":59,"avg_eff":78.0,"min_eff":31.0,"max_eff":111.0,"total_output":654991,"total_lost_mins":3093.1,"avg_speed":46.6,"min_speed":30.0,"max_speed":61.0,"top_skus":"TRUFRE-01, TRIPRO-01V1, TRIPRO-01","recent_runs":14,"recent_eff":68.0},"BOTTLE LINE":{"runs":12,"avg_eff":86.0,"min_eff":67.0,"max_eff":107.0,"total_output":102272,"total_lost_mins":449.8,"avg_speed":34.7,"min_speed":30.0,"max_speed":46.0,"top_skus":"BOOGIE-01, TRUFRE-15, BOOGIE01"},"BOTTLE LINE II":{"runs":7,"avg_eff":89.0,"min_eff":65.0,"max_eff":102.0,"total_output":51816,"total_lost_mins":200.2,"avg_speed":31.4,"min_speed":30.0,"max_speed":32.0,"top_skus":"BOOGIE-01, BOGGIE-01"},"ELGIN I":{"runs":53,"avg_eff":86.0,"min_eff":40.0,"max_eff":113.0,"total_output":378273,"total_lost_mins":1588.5,"avg_speed":27.9,"min_speed":20.0,"max_speed":34.0,"top_skus":"DUKCAN-05V1, DUKCAN-20, DUKCAN-14","recent_runs":14,"recent_eff":81.0},"ELGIN II":{"runs":16,"avg_eff":72.0,"min_eff":44.0,"max_eff":93.0,"total_output":50464,"total_lost_mins":1115.6,"avg_speed":19.5,"min_speed":14.0,"max_speed":30.0,"top_skus":"DAPBAB-05, DAPBAB-18, DAPBAB-21","recent_runs":2,"recent_eff":70.0},"KALIX I":{"runs":16,"avg_eff":75.0,"min_eff":26.0,"max_eff":117.0,"total_output":151667,"total_lost_mins":1035.9,"avg_speed":43.9,"min_speed":43.0,"max_speed":44.0,"top_skus":"DUKCAN-07V1, DUKCAN-10V1, DUKCAN-10v1"},"KALIX II":{"runs":32,"avg_eff":69.0,"min_eff":27.0,"max_eff":97.0,"total_output":257792,"total_lost_mins":2693.5,"avg_speed":46.5,"min_speed":40.0,"max_speed":47.0,"top_skus":"DUKCAN-18, DUKCAN-12, DUKCAN-19","recent_runs":7,"recent_eff":75.0},"KENTEX":{"runs":8,"avg_eff":46.0,"min_eff":21.0,"max_eff":98.0,"total_output":14555,"total_lost_mins":609.2,"avg_speed":25.1,"min_speed":23.0,"max_speed":40.0,"top_skus":"FUCHSL-11, FUCHSL 11, FUCSH-11","recent_runs":8,"recent_eff":46.0},"P1":{"runs":12,"avg_eff":92.0,"min_eff":72.0,"max_eff":109.0,"total_output":239652,"total_lost_mins":314.3,"avg_speed":63.7,"min_speed":56.0,"max_speed":84.0,"top_skus":"ENZSOL-02, DAPBAB-01V1, ENZSOL-01"},"P2":{"runs":23,"avg_eff":91.0,"min_eff":40.0,"max_eff":146.0,"total_output":431724,"total_lost_mins":652.9,"avg_speed":67.7,"min_speed":56.0,"max_speed":72.0,"top_skus":"DAPBAB-01V1, ENZSOL-01, DAPBAB-01v1"},"P3":{"runs":16,"avg_eff":58.0,"min_eff":9.0,"max_eff":102.0,"total_output":28874,"total_lost_mins":1402.4,"avg_speed":12.4,"min_speed":10.0,"max_speed":16.0,"top_skus":"PACTEC-01G, PACTEC-06G, PACTEC-05G"},"PD3":{"runs":2,"avg_eff":94.0,"min_eff":91.0,"max_eff":98.0,"total_output":3744,"total_lost_mins":19.5,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"top_skus":"PACTEC-05G, PACTEC-06G"},"PP I":{"runs":1,"avg_eff":92.0,"min_eff":92.0,"max_eff":92.0,"total_output":19232,"total_lost_mins":30.6,"avg_speed":56.0,"min_speed":56.0,"max_speed":56.0,"top_skus":"ENZSOL-02"},"PP II":{"runs":1,"avg_eff":78.0,"min_eff":78.0,"max_eff":78.0,"total_output":18550,"total_lost_mins":75.5,"avg_speed":68.0,"min_speed":68.0,"max_speed":68.0,"top_skus":"DAPBAB-01V1"},"PP III":{"runs":2,"avg_eff":60.0,"min_eff":15.0,"max_eff":104.0,"total_output":11505,"total_lost_mins":295.9,"avg_speed":40.0,"min_speed":12.0,"max_speed":68.0,"top_skus":"DAPBAB-01V1, PACTEC-06G"},"PSG":{"runs":46,"avg_eff":83.0,"min_eff":48.0,"max_eff":106.0,"total_output":97553,"total_lost_mins":1849.9,"avg_speed":10.7,"min_speed":7.0,"max_speed":20.0,"top_skus":"DAPBAB-04V2, DAPBAB-26, DAPBAB-04v2","recent_runs":12,"recent_eff":78.0},"PSG ":{"runs":1,"avg_eff":67.0,"min_eff":67.0,"max_eff":67.0,"total_output":1696,"total_lost_mins":92.1,"avg_speed":9.0,"min_speed":9.0,"max_speed":9.0,"top_skus":"DAPBAB-0V2","recent_runs":1,"recent_eff":67.0},"REB":{"runs":35,"avg_eff":63.0,"min_eff":36.0,"max_eff":89.0,"total_output":194010,"total_lost_mins":3137.6,"avg_speed":34.1,"min_speed":25.0,"max_speed":42.0,"top_skus":"DUKCAN-17, OKECOM-08, OKECOM-07","recent_runs":3,"recent_eff":49.0},"SINGLE SHOT":{"runs":6,"avg_eff":46.0,"min_eff":10.0,"max_eff":88.0,"total_output":6372,"total_lost_mins":667.5,"avg_speed":12.0,"min_speed":12.0,"max_speed":12.0,"top_skus":"FUCHSL-06, FUCHSL-07"},"TRUFRE-01":{"runs":1,"avg_eff":61.0,"min_eff":61.0,"max_eff":61.0,"total_output":9100,"total_lost_mins":108.8,"avg_speed":53.0,"min_speed":53.0,"max_speed":53.0,"top_skus":"TRUFRE-01"}}};<!DOCTYPE html>
+
+// Additional 2025 data (433 runs)
+const data2025 = {
+  "skus": {
+    "TRUFRE-01": {
+      "runs": 14,
+      "avg_eff": 76.4,
+      "min_eff": 65.1,
+      "max_eff": 84.8,
+      "total_output": 108680,
+      "avg_output": 7763,
+      "max_output": 12712,
+      "total_lost_mins": 770.8,
+      "avg_speed": 42.1,
+      "min_speed": 41.0,
+      "max_speed": 47.0,
+      "avg_manning": 3.0,
+      "top_lines": "B6"
+    },
+    "DAPBAB-11V1": {
+      "runs": 4,
+      "avg_eff": 74.0,
+      "min_eff": 59.9,
+      "max_eff": 81.5,
+      "total_output": 21930,
+      "avg_output": 5482,
+      "max_output": 7642,
+      "total_lost_mins": 261.5,
+      "avg_speed": 29.0,
+      "min_speed": 22.0,
+      "max_speed": 36.0,
+      "avg_manning": 7.5,
+      "top_lines": "ELGIN II, REB"
+    },
+    "FUCHSL-01V1": {
+      "runs": 14,
+      "avg_eff": 85.6,
+      "min_eff": 45.9,
+      "max_eff": 102.1,
+      "total_output": 114156,
+      "avg_output": 8154,
+      "max_output": 13392,
+      "total_lost_mins": 298.0,
+      "avg_speed": 37.9,
+      "min_speed": 34.0,
+      "max_speed": 40.0,
+      "avg_manning": 3.0,
+      "top_lines": "KENTEX"
+    },
+    "DAPBAB-04V2": {
+      "runs": 33,
+      "avg_eff": 73.3,
+      "min_eff": 5.3,
+      "max_eff": 94.9,
+      "total_output": 117930,
+      "avg_output": 3574,
+      "max_output": 5776,
+      "total_lost_mins": 2053.7,
+      "avg_speed": 15.7,
+      "min_speed": 9.0,
+      "max_speed": 26.0,
+      "avg_manning": 4.2,
+      "top_lines": "PSG"
+    },
+    "OKECOM-01": {
+      "runs": 19,
+      "avg_eff": 71.5,
+      "min_eff": 55.7,
+      "max_eff": 88.4,
+      "total_output": 159719,
+      "avg_output": 8406,
+      "max_output": 14136,
+      "total_lost_mins": 1458.7,
+      "avg_speed": 42.0,
+      "min_speed": 42.0,
+      "max_speed": 42.0,
+      "avg_manning": 7.3,
+      "top_lines": "REB"
+    },
+    "DUKCAN-08V1": {
+      "runs": 3,
+      "avg_eff": 83.3,
+      "min_eff": 72.7,
+      "max_eff": 96.0,
+      "total_output": 21840,
+      "avg_output": 7280,
+      "max_output": 9552,
+      "total_lost_mins": 154.5,
+      "avg_speed": 26.0,
+      "min_speed": 26.0,
+      "max_speed": 26.0,
+      "avg_manning": 7.7,
+      "top_lines": "ELGIN I"
+    },
+    "OKECOM-06": {
+      "runs": 25,
+      "avg_eff": 77.7,
+      "min_eff": 53.9,
+      "max_eff": 96.0,
+      "total_output": 212636,
+      "avg_output": 8505,
+      "max_output": 14676,
+      "total_lost_mins": 1297.5,
+      "avg_speed": 41.8,
+      "min_speed": 38.0,
+      "max_speed": 42.0,
+      "avg_manning": 7.1,
+      "top_lines": "REB"
+    },
+    "OKECOM-04": {
+      "runs": 2,
+      "avg_eff": 65.7,
+      "min_eff": 62.8,
+      "max_eff": 68.7,
+      "total_output": 11393,
+      "avg_output": 5696,
+      "max_output": 7358,
+      "total_lost_mins": 136.7,
+      "avg_speed": 42.0,
+      "min_speed": 42.0,
+      "max_speed": 42.0,
+      "avg_manning": 7.0,
+      "top_lines": "REB"
+    },
+    "DAPBAB-21": {
+      "runs": 3,
+      "avg_eff": 75.2,
+      "min_eff": 73.4,
+      "max_eff": 77.4,
+      "total_output": 14360,
+      "avg_output": 4787,
+      "max_output": 6672,
+      "total_lost_mins": 188.1,
+      "avg_speed": 24.7,
+      "min_speed": 24.0,
+      "max_speed": 26.0,
+      "avg_manning": 7.3,
+      "top_lines": "ELGIN II"
+    },
+    "FUCHSL-07": {
+      "runs": 6,
+      "avg_eff": 51.3,
+      "min_eff": 0.0,
+      "max_eff": 89.5,
+      "total_output": 14795,
+      "avg_output": 2466,
+      "max_output": 3550,
+      "total_lost_mins": 215.4,
+      "avg_speed": 11.5,
+      "min_speed": 10.0,
+      "max_speed": 13.0,
+      "avg_manning": 3.0,
+      "top_lines": "500, ELGIN II"
+    },
+    "PACTEC-02FLA": {
+      "runs": 2,
+      "avg_eff": 78.8,
+      "min_eff": 78.4,
+      "max_eff": 79.2,
+      "total_output": 2400,
+      "avg_output": 1200,
+      "max_output": 2120,
+      "total_lost_mins": 90.6,
+      "avg_speed": 7.0,
+      "min_speed": 7.0,
+      "max_speed": 7.0,
+      "avg_manning": 2.0,
+      "top_lines": "P3"
+    },
+    "BOOGIE-01": {
+      "runs": 17,
+      "avg_eff": 76.3,
+      "min_eff": 24.0,
+      "max_eff": 99.7,
+      "total_output": 77982,
+      "avg_output": 4587,
+      "max_output": 9150,
+      "total_lost_mins": 737.1,
+      "avg_speed": 24.5,
+      "min_speed": 19.0,
+      "max_speed": 30.0,
+      "avg_manning": 6.5,
+      "top_lines": "BOTTLE LINE II, ELGIN II"
+    },
+    "FUCHSL-06": {
+      "runs": 6,
+      "avg_eff": 37.7,
+      "min_eff": 0.0,
+      "max_eff": 86.0,
+      "total_output": 9839,
+      "avg_output": 1640,
+      "max_output": 3204,
+      "total_lost_mins": 145.0,
+      "avg_speed": 10.0,
+      "min_speed": 10.0,
+      "max_speed": 10.0,
+      "avg_manning": 3.0,
+      "top_lines": "500, ELGIN II"
+    },
+    "DAPBAB-09V1": {
+      "runs": 29,
+      "avg_eff": 78.9,
+      "min_eff": 53.2,
+      "max_eff": 98.9,
+      "total_output": 221904,
+      "avg_output": 7652,
+      "max_output": 11312,
+      "total_lost_mins": 1753.2,
+      "avg_speed": 31.8,
+      "min_speed": 20.0,
+      "max_speed": 42.0,
+      "avg_manning": 7.5,
+      "top_lines": "REB, ELGIN II"
+    },
+    "DAPBAB-04IPV2": {
+      "runs": 8,
+      "avg_eff": 82.3,
+      "min_eff": 72.8,
+      "max_eff": 94.3,
+      "total_output": 32096,
+      "avg_output": 4012,
+      "max_output": 6056,
+      "total_lost_mins": 451.3,
+      "avg_speed": 15.0,
+      "min_speed": 14.0,
+      "max_speed": 18.0,
+      "avg_manning": 6.2,
+      "top_lines": "PSG"
+    },
+    "TRUFRE-04": {
+      "runs": 6,
+      "avg_eff": 85.7,
+      "min_eff": 78.3,
+      "max_eff": 93.8,
+      "total_output": 48208,
+      "avg_output": 8035,
+      "max_output": 9904,
+      "total_lost_mins": 261.3,
+      "avg_speed": 31.0,
+      "min_speed": 28.0,
+      "max_speed": 37.0,
+      "avg_manning": 2.0,
+      "top_lines": "B1, B2"
+    },
+    "DAPBAB-26": {
+      "runs": 4,
+      "avg_eff": 67.2,
+      "min_eff": 51.3,
+      "max_eff": 80.0,
+      "total_output": 9232,
+      "avg_output": 2308,
+      "max_output": 3308,
+      "total_lost_mins": 261.1,
+      "avg_speed": 17.5,
+      "min_speed": 14.0,
+      "max_speed": 28.0,
+      "avg_manning": 5.2,
+      "top_lines": "PSG"
+    },
+    "DUKCAN-02V1": {
+      "runs": 8,
+      "avg_eff": 88.4,
+      "min_eff": 62.6,
+      "max_eff": 103.4,
+      "total_output": 46223,
+      "avg_output": 5778,
+      "max_output": 7962,
+      "total_lost_mins": 266.1,
+      "avg_speed": 24.8,
+      "min_speed": 20.0,
+      "max_speed": 28.0,
+      "avg_manning": 7.5,
+      "top_lines": "ELGIN I"
+    },
+    "COSTEC-31": {
+      "runs": 1,
+      "avg_eff": 71.9,
+      "min_eff": 71.9,
+      "max_eff": 71.9,
+      "total_output": 5500,
+      "avg_output": 5500,
+      "max_output": 5500,
+      "total_lost_mins": 43.0,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "COSTEC-31B": {
+      "runs": 1,
+      "avg_eff": 83.3,
+      "min_eff": 83.3,
+      "max_eff": 83.3,
+      "total_output": 4250,
+      "avg_output": 4250,
+      "max_output": 4250,
+      "total_lost_mins": 17.0,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "AUNFAN-02V2": {
+      "runs": 7,
+      "avg_eff": 78.4,
+      "min_eff": 37.9,
+      "max_eff": 98.2,
+      "total_output": 31790,
+      "avg_output": 4541,
+      "max_output": 6270,
+      "total_lost_mins": 490.2,
+      "avg_speed": 18.4,
+      "min_speed": 18.0,
+      "max_speed": 19.0,
+      "avg_manning": 6.0,
+      "top_lines": "MB"
+    },
+    "COSTEC-09B": {
+      "runs": 1,
+      "avg_eff": 80.0,
+      "min_eff": 80.0,
+      "max_eff": 80.0,
+      "total_output": 5100,
+      "avg_output": 5100,
+      "max_output": 5100,
+      "total_lost_mins": 25.5,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "COSTEC-30V2": {
+      "runs": 2,
+      "avg_eff": 90.4,
+      "min_eff": 89.3,
+      "max_eff": 91.5,
+      "total_output": 9190,
+      "avg_output": 4595,
+      "max_output": 5690,
+      "total_lost_mins": 20.2,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "DAPBAB-18": {
+      "runs": 3,
+      "avg_eff": 60.9,
+      "min_eff": 30.1,
+      "max_eff": 77.1,
+      "total_output": 13224,
+      "avg_output": 4408,
+      "max_output": 9200,
+      "total_lost_mins": 142.7,
+      "avg_speed": 36.0,
+      "min_speed": 36.0,
+      "max_speed": 36.0,
+      "avg_manning": 8.0,
+      "top_lines": "REB"
+    },
+    "DUKAN-04": {
+      "runs": 9,
+      "avg_eff": 88.7,
+      "min_eff": 81.5,
+      "max_eff": 97.3,
+      "total_output": 106100,
+      "avg_output": 11789,
+      "max_output": 17488,
+      "total_lost_mins": 254.3,
+      "avg_speed": 47.0,
+      "min_speed": 47.0,
+      "max_speed": 47.0,
+      "avg_manning": 6.0,
+      "top_lines": "KALIX II"
+    },
+    "COSTEC-46V2": {
+      "runs": 1,
+      "avg_eff": 81.4,
+      "min_eff": 81.4,
+      "max_eff": 81.4,
+      "total_output": 8300,
+      "avg_output": 8300,
+      "max_output": 8300,
+      "total_lost_mins": 38.0,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "AUNFAN-01V1": {
+      "runs": 6,
+      "avg_eff": 84.3,
+      "min_eff": 75.6,
+      "max_eff": 93.0,
+      "total_output": 31896,
+      "avg_output": 5316,
+      "max_output": 6462,
+      "total_lost_mins": 310.3,
+      "avg_speed": 19.0,
+      "min_speed": 19.0,
+      "max_speed": 19.0,
+      "avg_manning": 6.0,
+      "top_lines": "MB"
+    },
+    "COSTEC-27": {
+      "runs": 1,
+      "avg_eff": 79.6,
+      "min_eff": 79.6,
+      "max_eff": 79.6,
+      "total_output": 8120,
+      "avg_output": 8120,
+      "max_output": 8120,
+      "total_lost_mins": 41.6,
+      "avg_speed": 50.0,
+      "min_speed": 50.0,
+      "max_speed": 50.0,
+      "avg_manning": 2.0,
+      "top_lines": "B4"
+    },
+    "BOOGIE-02": {
+      "runs": 21,
+      "avg_eff": 86.5,
+      "min_eff": 32.1,
+      "max_eff": 100.3,
+      "total_output": 257720,
+      "avg_output": 12272,
+      "max_output": 17640,
+      "total_lost_mins": 612.1,
+      "avg_speed": 44.0,
+      "min_speed": 36.0,
+      "max_speed": 52.0,
+      "avg_manning": 3.1,
+      "top_lines": "B4, B2"
+    },
+    "AUNFAN-1PKS": {
+      "runs": 1,
+      "avg_eff": 95.5,
+      "min_eff": 95.5,
+      "max_eff": 95.5,
+      "total_output": 1428,
+      "avg_output": 1428,
+      "max_output": 1428,
+      "total_lost_mins": 8.5,
+      "avg_speed": 8.0,
+      "min_speed": 8.0,
+      "max_speed": 8.0,
+      "avg_manning": 3.0,
+      "top_lines": "SHRINKWRAP"
+    },
+    "AUNFAN-01V3": {
+      "runs": 1,
+      "avg_eff": 57.0,
+      "min_eff": 57.0,
+      "max_eff": 57.0,
+      "total_output": 1104,
+      "avg_output": 1104,
+      "max_output": 1104,
+      "total_lost_mins": 43.9,
+      "avg_speed": 19.0,
+      "min_speed": 19.0,
+      "max_speed": 19.0,
+      "avg_manning": 6.0,
+      "top_lines": "MB"
+    },
+    "AUNFAN-01PK2": {
+      "runs": 3,
+      "avg_eff": 57.9,
+      "min_eff": 35.3,
+      "max_eff": 85.0,
+      "total_output": 3264,
+      "avg_output": 1088,
+      "max_output": 1272,
+      "total_lost_mins": 340.0,
+      "avg_speed": 8.0,
+      "min_speed": 8.0,
+      "max_speed": 8.0,
+      "avg_manning": 2.3,
+      "top_lines": "SHRINKWRAP"
+    },
+    "JSTRIC-02-100": {
+      "runs": 9,
+      "avg_eff": 82.5,
+      "min_eff": 69.9,
+      "max_eff": 92.7,
+      "total_output": 127278,
+      "avg_output": 14142,
+      "max_output": 18288,
+      "total_lost_mins": 473.5,
+      "avg_speed": 54.0,
+      "min_speed": 54.0,
+      "max_speed": 54.0,
+      "avg_manning": 5.0,
+      "top_lines": "P2"
+    },
+    "AUNFAN-02PKS": {
+      "runs": 4,
+      "avg_eff": 87.5,
+      "min_eff": 81.7,
+      "max_eff": 97.1,
+      "total_output": 6614,
+      "avg_output": 1654,
+      "max_output": 2970,
+      "total_lost_mins": 91.2,
+      "avg_speed": 8.0,
+      "min_speed": 8.0,
+      "max_speed": 8.0,
+      "avg_manning": 3.8,
+      "top_lines": "SHRINKWRAP"
+    },
+    "AUNFAN-03": {
+      "runs": 1,
+      "avg_eff": 84.7,
+      "min_eff": 84.7,
+      "max_eff": 84.7,
+      "total_output": 5334,
+      "avg_output": 5334,
+      "max_output": 5334,
+      "total_lost_mins": 50.8,
+      "avg_speed": 19.0,
+      "min_speed": 19.0,
+      "max_speed": 19.0,
+      "avg_manning": 6.0,
+      "top_lines": "MB"
+    },
+    "ALLINT-01": {
+      "runs": 6,
+      "avg_eff": 74.3,
+      "min_eff": 39.2,
+      "max_eff": 99.3,
+      "total_output": 120000,
+      "avg_output": 20000,
+      "max_output": 45600,
+      "total_lost_mins": 194.0,
+      "avg_speed": 115.0,
+      "min_speed": 90.0,
+      "max_speed": 120.0,
+      "avg_manning": 2.0,
+      "top_lines": "WHITE BROWN"
+    },
+    "AUNFAN-11": {
+      "runs": 1,
+      "avg_eff": 31.6,
+      "min_eff": 31.6,
+      "max_eff": 31.6,
+      "total_output": 1224,
+      "avg_output": 1224,
+      "max_output": 1224,
+      "total_lost_mins": 139.6,
+      "avg_speed": 19.0,
+      "min_speed": 19.0,
+      "max_speed": 19.0,
+      "avg_manning": 6.0,
+      "top_lines": "MB"
+    },
+    "FUCHSL-01": {
+      "runs": 7,
+      "avg_eff": 78.3,
+      "min_eff": 61.2,
+      "max_eff": 90.6,
+      "total_output": 34740,
+      "avg_output": 4963,
+      "max_output": 9216,
+      "total_lost_mins": 246.7,
+      "avg_speed": 39.6,
+      "min_speed": 37.0,
+      "max_speed": 40.0,
+      "avg_manning": 3.0,
+      "top_lines": "KENTEX"
+    },
+    "JSTRIC-02V3": {
+      "runs": 6,
+      "avg_eff": 0.0,
+      "min_eff": 0.0,
+      "max_eff": 0.0,
+      "total_output": 119980,
+      "avg_output": 19997,
+      "max_output": 22680,
+      "total_lost_mins": 0.0,
+      "avg_speed": 0,
+      "min_speed": 0,
+      "max_speed": 0,
+      "avg_manning": 3.0,
+      "top_lines": "SHRINKWRAP"
+    },
+    "AVLONI-130": {
+      "runs": 3,
+      "avg_eff": 73.0,
+      "min_eff": 66.1,
+      "max_eff": 79.3,
+      "total_output": 12771,
+      "avg_output": 4257,
+      "max_output": 5256,
+      "total_lost_mins": 85.9,
+      "avg_speed": 52.0,
+      "min_speed": 52.0,
+      "max_speed": 52.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "DAPBAB-20": {
+      "runs": 6,
+      "avg_eff": 60.1,
+      "min_eff": 20.4,
+      "max_eff": 84.1,
+      "total_output": 15968,
+      "avg_output": 2661,
+      "max_output": 6432,
+      "total_lost_mins": 474.4,
+      "avg_speed": 20.3,
+      "min_speed": 18.0,
+      "max_speed": 24.0,
+      "avg_manning": 6.7,
+      "top_lines": "ELGIN II"
+    },
+    "JRWATK-08": {
+      "runs": 2,
+      "avg_eff": 72.7,
+      "min_eff": 72.2,
+      "max_eff": 73.2,
+      "total_output": 14235,
+      "avg_output": 7118,
+      "max_output": 10921,
+      "total_lost_mins": 117.2,
+      "avg_speed": 45.0,
+      "min_speed": 45.0,
+      "max_speed": 45.0,
+      "avg_manning": 7.0,
+      "top_lines": "KALIX II"
+    },
+    "JRWTAK-08": {
+      "runs": 2,
+      "avg_eff": 68.9,
+      "min_eff": 57.7,
+      "max_eff": 80.1,
+      "total_output": 15936,
+      "avg_output": 7968,
+      "max_output": 12480,
+      "total_lost_mins": 119.9,
+      "avg_speed": 47.0,
+      "min_speed": 47.0,
+      "max_speed": 47.0,
+      "avg_manning": 6.0,
+      "top_lines": "KALIX II"
+    },
+    "AVLONI-132": {
+      "runs": 1,
+      "avg_eff": 95.8,
+      "min_eff": 95.8,
+      "max_eff": 95.8,
+      "total_output": 5616,
+      "avg_output": 5616,
+      "max_output": 5616,
+      "total_lost_mins": 5.4,
+      "avg_speed": 46.0,
+      "min_speed": 46.0,
+      "max_speed": 46.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "DAPBAB-09": {
+      "runs": 15,
+      "avg_eff": 77.7,
+      "min_eff": 54.6,
+      "max_eff": 96.0,
+      "total_output": 94396,
+      "avg_output": 6293,
+      "max_output": 8816,
+      "total_lost_mins": 1091.4,
+      "avg_speed": 25.9,
+      "min_speed": 22.0,
+      "max_speed": 30.0,
+      "avg_manning": 6.6,
+      "top_lines": "ELGIN II"
+    },
+    "AVLONI-134": {
+      "runs": 1,
+      "avg_eff": 82.5,
+      "min_eff": 82.5,
+      "max_eff": 82.5,
+      "total_output": 3872,
+      "avg_output": 3872,
+      "max_output": 3872,
+      "total_lost_mins": 17.8,
+      "avg_speed": 46.0,
+      "min_speed": 46.0,
+      "max_speed": 46.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "AVLONI-136": {
+      "runs": 4,
+      "avg_eff": 50.2,
+      "min_eff": 32.1,
+      "max_eff": 74.6,
+      "total_output": 6088,
+      "avg_output": 1522,
+      "max_output": 2625,
+      "total_lost_mins": 122.7,
+      "avg_speed": 46.0,
+      "min_speed": 46.0,
+      "max_speed": 46.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "DUKCAN-11": {
+      "runs": 2,
+      "avg_eff": 76.1,
+      "min_eff": 74.6,
+      "max_eff": 77.6,
+      "total_output": 12467,
+      "avg_output": 6234,
+      "max_output": 6529,
+      "total_lost_mins": 147.0,
+      "avg_speed": 27.0,
+      "min_speed": 24.0,
+      "max_speed": 30.0,
+      "avg_manning": 7.0,
+      "top_lines": "ELGIN I"
+    },
+    "DUKCAN-10": {
+      "runs": 16,
+      "avg_eff": 80.8,
+      "min_eff": 63.9,
+      "max_eff": 95.2,
+      "total_output": 179671,
+      "avg_output": 11229,
+      "max_output": 16392,
+      "total_lost_mins": 855.4,
+      "avg_speed": 44.6,
+      "min_speed": 40.0,
+      "max_speed": 45.0,
+      "avg_manning": 6.0,
+      "top_lines": "KALIX I, KALIX II"
+    },
+    "DAPBAB-04IP": {
+      "runs": 9,
+      "avg_eff": 57.5,
+      "min_eff": 51.1,
+      "max_eff": 67.3,
+      "total_output": 29432,
+      "avg_output": 3270,
+      "max_output": 4232,
+      "total_lost_mins": 990.8,
+      "avg_speed": 22.7,
+      "min_speed": 12.0,
+      "max_speed": 26.0,
+      "avg_manning": 6.7,
+      "top_lines": "PSG"
+    },
+    "AVLONI-133": {
+      "runs": 1,
+      "avg_eff": 70.8,
+      "min_eff": 70.8,
+      "max_eff": 70.8,
+      "total_output": 1660,
+      "avg_output": 1660,
+      "max_output": 1660,
+      "total_lost_mins": 14.9,
+      "avg_speed": 46.0,
+      "min_speed": 46.0,
+      "max_speed": 46.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "ENZSOL-01": {
+      "runs": 2,
+      "avg_eff": 51.8,
+      "min_eff": 46.4,
+      "max_eff": 57.3,
+      "total_output": 17075,
+      "avg_output": 8538,
+      "max_output": 9363,
+      "total_lost_mins": -601.8,
+      "avg_speed": 15.0,
+      "min_speed": 12.0,
+      "max_speed": 18.0,
+      "avg_manning": 3.0,
+      "top_lines": "PPAK-1"
+    },
+    "JRWATK-04": {
+      "runs": 5,
+      "avg_eff": 66.1,
+      "min_eff": 29.0,
+      "max_eff": 94.7,
+      "total_output": 31850,
+      "avg_output": 6370,
+      "max_output": 12024,
+      "total_lost_mins": 342.3,
+      "avg_speed": 47.0,
+      "min_speed": 47.0,
+      "max_speed": 47.0,
+      "avg_manning": 6.2,
+      "top_lines": "KALIX II"
+    },
+    "DAPBAB-04": {
+      "runs": 1,
+      "avg_eff": 56.3,
+      "min_eff": 56.3,
+      "max_eff": 56.3,
+      "total_output": 4104,
+      "avg_output": 4104,
+      "max_output": 4104,
+      "total_lost_mins": 122.7,
+      "avg_speed": 26.0,
+      "min_speed": 26.0,
+      "max_speed": 26.0,
+      "avg_manning": 7.0,
+      "top_lines": "PSG"
+    },
+    "ABACUS-07V2": {
+      "runs": 8,
+      "avg_eff": 98.9,
+      "min_eff": 78.7,
+      "max_eff": 113.7,
+      "total_output": 137653,
+      "avg_output": 17207,
+      "max_output": 21750,
+      "total_lost_mins": -42.7,
+      "avg_speed": 50.8,
+      "min_speed": 50.0,
+      "max_speed": 52.0,
+      "avg_manning": 2.0,
+      "top_lines": "B3"
+    },
+    "JRWATK-21": {
+      "runs": 13,
+      "avg_eff": 79.9,
+      "min_eff": 57.9,
+      "max_eff": 97.9,
+      "total_output": 40901,
+      "avg_output": 3146,
+      "max_output": 5328,
+      "total_lost_mins": 821.1,
+      "avg_speed": 14.4,
+      "min_speed": 7.0,
+      "max_speed": 18.0,
+      "avg_manning": 5.5,
+      "top_lines": "PSG"
+    },
+    "DUKCAN-09": {
+      "runs": 5,
+      "avg_eff": 87.6,
+      "min_eff": 81.6,
+      "max_eff": 100.6,
+      "total_output": 37585,
+      "avg_output": 7517,
+      "max_output": 10416,
+      "total_lost_mins": 162.7,
+      "avg_speed": 28.4,
+      "min_speed": 26.0,
+      "max_speed": 30.0,
+      "avg_manning": 8.0,
+      "top_lines": "ELGIN I"
+    },
+    "JRWATK-11": {
+      "runs": 18,
+      "avg_eff": 69.5,
+      "min_eff": 38.5,
+      "max_eff": 93.3,
+      "total_output": 47100,
+      "avg_output": 2617,
+      "max_output": 4608,
+      "total_lost_mins": 1591.3,
+      "avg_speed": 13.9,
+      "min_speed": 8.0,
+      "max_speed": 18.0,
+      "avg_manning": 4.9,
+      "top_lines": "PSG"
+    },
+    "LIQRES-01": {
+      "runs": 4,
+      "avg_eff": 88.9,
+      "min_eff": 79.2,
+      "max_eff": 95.1,
+      "total_output": 36000,
+      "avg_output": 9000,
+      "max_output": 12000,
+      "total_lost_mins": 107.6,
+      "avg_speed": 33.0,
+      "min_speed": 33.0,
+      "max_speed": 33.0,
+      "avg_manning": 2.0,
+      "top_lines": "SAGA#3"
+    },
+    "ENZSOL-02": {
+      "runs": 6,
+      "avg_eff": 84.7,
+      "min_eff": 75.8,
+      "max_eff": 95.1,
+      "total_output": 54432,
+      "avg_output": 9072,
+      "max_output": 15264,
+      "total_lost_mins": -3235.5,
+      "avg_speed": 12.0,
+      "min_speed": 12.0,
+      "max_speed": 12.0,
+      "avg_manning": 3.0,
+      "top_lines": "PPAK-1"
+    },
+    "SYNTEC-03": {
+      "runs": 2,
+      "avg_eff": 51.7,
+      "min_eff": 45.9,
+      "max_eff": 57.6,
+      "total_output": 4929,
+      "avg_output": 2464,
+      "max_output": 3524,
+      "total_lost_mins": -175.6,
+      "avg_speed": 15.0,
+      "min_speed": 15.0,
+      "max_speed": 15.0,
+      "avg_manning": 3.0,
+      "top_lines": "600"
+    },
+    "TRUFE-04": {
+      "runs": 2,
+      "avg_eff": 50.0,
+      "min_eff": 49.0,
+      "max_eff": 51.0,
+      "total_output": 4702,
+      "avg_output": 2351,
+      "max_output": 4002,
+      "total_lost_mins": 163.6,
+      "avg_speed": 28.0,
+      "min_speed": 28.0,
+      "max_speed": 28.0,
+      "avg_manning": 3.0,
+      "top_lines": "B1"
+    },
+    "ATLPUT-02": {
+      "runs": 5,
+      "avg_eff": 84.0,
+      "min_eff": 78.7,
+      "max_eff": 93.1,
+      "total_output": 54319,
+      "avg_output": 10864,
+      "max_output": 15024,
+      "total_lost_mins": 213.2,
+      "avg_speed": 46.0,
+      "min_speed": 46.0,
+      "max_speed": 46.0,
+      "avg_manning": 2.6,
+      "top_lines": "B6"
+    },
+    "OKECOM-07": {
+      "runs": 3,
+      "avg_eff": 77.5,
+      "min_eff": 73.0,
+      "max_eff": 80.0,
+      "total_output": 33960,
+      "avg_output": 11320,
+      "max_output": 12846,
+      "total_lost_mins": 236.9,
+      "avg_speed": 42.0,
+      "min_speed": 42.0,
+      "max_speed": 42.0,
+      "avg_manning": 7.0,
+      "top_lines": "REB"
+    },
+    "DUKCAN-07": {
+      "runs": 1,
+      "avg_eff": 94.4,
+      "min_eff": 94.4,
+      "max_eff": 94.4,
+      "total_output": 7304,
+      "avg_output": 7304,
+      "max_output": 7304,
+      "total_lost_mins": 16.6,
+      "avg_speed": 26.0,
+      "min_speed": 26.0,
+      "max_speed": 26.0,
+      "avg_manning": 7.0,
+      "top_lines": "ELGIN I"
+    },
+    "DUKCAN-05": {
+      "runs": 1,
+      "avg_eff": 86.0,
+      "min_eff": 86.0,
+      "max_eff": 86.0,
+      "total_output": 4561,
+      "avg_output": 4561,
+      "max_output": 4561,
+      "total_lost_mins": 28.6,
+      "avg_speed": 26.0,
+      "min_speed": 26.0,
+      "max_speed": 26.0,
+      "avg_manning": 6.0,
+      "top_lines": "ELGIN I"
+    }
+  },
+  "lines": {
+    "B6": {
+      "runs": 19,
+      "avg_eff": 78.4,
+      "min_eff": 65.1,
+      "max_eff": 93.1,
+      "total_output": 162999,
+      "total_lost_mins": 984.0,
+      "avg_speed": 43.1,
+      "min_speed": 41.0,
+      "max_speed": 47.0,
+      "top_skus": "TRUFRE-01, ATLPUT-02"
+    },
+    "ELGIN II": {
+      "runs": 51,
+      "avg_eff": 69.5,
+      "min_eff": 0.0,
+      "max_eff": 97.1,
+      "total_output": 266268,
+      "total_lost_mins": 2710.7,
+      "avg_speed": 24.6,
+      "min_speed": 18.0,
+      "max_speed": 30.0,
+      "top_skus": "DAPBAB-09, DAPBAB-09V1, BOOGIE-01"
+    },
+    "KENTEX": {
+      "runs": 21,
+      "avg_eff": 83.2,
+      "min_eff": 45.9,
+      "max_eff": 102.1,
+      "total_output": 148896,
+      "total_lost_mins": 544.7,
+      "avg_speed": 38.4,
+      "min_speed": 34.0,
+      "max_speed": 40.0,
+      "top_skus": "FUCHSL-01V1, FUCHSL-01"
+    },
+    "PSG": {
+      "runs": 86,
+      "avg_eff": 72.2,
+      "min_eff": 5.3,
+      "max_eff": 97.9,
+      "total_output": 280795,
+      "total_lost_mins": 6292.1,
+      "avg_speed": 16.0,
+      "min_speed": 7.0,
+      "max_speed": 28.0,
+      "top_skus": "DAPBAB-04V2, JRWATK-11, JRWATK-21"
+    },
+    "REB": {
+      "runs": 69,
+      "avg_eff": 73.7,
+      "min_eff": 30.1,
+      "max_eff": 98.9,
+      "total_output": 566694,
+      "total_lost_mins": 4564.2,
+      "avg_speed": 40.5,
+      "min_speed": 30.0,
+      "max_speed": 42.0,
+      "top_skus": "OKECOM-06, OKECOM-01, DAPBAB-09V1"
+    },
+    "ELGIN I": {
+      "runs": 20,
+      "avg_eff": 86.4,
+      "min_eff": 62.6,
+      "max_eff": 103.4,
+      "total_output": 129980,
+      "total_lost_mins": 775.5,
+      "avg_speed": 26.2,
+      "min_speed": 20.0,
+      "max_speed": 30.0,
+      "top_skus": "DUKCAN-02V1, DUKCAN-09, DUKCAN-08V1"
+    },
+    "500": {
+      "runs": 7,
+      "avg_eff": 76.3,
+      "min_eff": 58.8,
+      "max_eff": 89.5,
+      "total_output": 13704,
+      "total_lost_mins": 360.4,
+      "avg_speed": 10.9,
+      "min_speed": 10.0,
+      "max_speed": 13.0,
+      "top_skus": "FUCHSL-07, FUCHSL-06"
+    },
+    "P3": {
+      "runs": 2,
+      "avg_eff": 78.8,
+      "min_eff": 78.4,
+      "max_eff": 79.2,
+      "total_output": 2400,
+      "total_lost_mins": 90.6,
+      "avg_speed": 7.0,
+      "min_speed": 7.0,
+      "max_speed": 7.0,
+      "top_skus": "PACTEC-02FLA"
+    },
+    "BOTTLE LINE II": {
+      "runs": 11,
+      "avg_eff": 77.3,
+      "min_eff": 54.6,
+      "max_eff": 99.7,
+      "total_output": 55440,
+      "total_lost_mins": 503.4,
+      "avg_speed": 24.7,
+      "min_speed": 19.0,
+      "max_speed": 30.0,
+      "top_skus": "BOOGIE-01"
+    },
+    "B2": {
+      "runs": 11,
+      "avg_eff": 87.9,
+      "min_eff": 74.2,
+      "max_eff": 100.3,
+      "total_output": 138152,
+      "total_lost_mins": 405.1,
+      "avg_speed": 42.6,
+      "min_speed": 36.0,
+      "max_speed": 52.0,
+      "top_skus": "BOOGIE-02, TRUFRE-04"
+    },
+    "B4": {
+      "runs": 19,
+      "avg_eff": 83.3,
+      "min_eff": 32.1,
+      "max_eff": 96.3,
+      "total_output": 177932,
+      "total_lost_mins": 520.4,
+      "avg_speed": 46.2,
+      "min_speed": 44.0,
+      "max_speed": 50.0,
+      "top_skus": "BOOGIE-02, COSTEC-30V2, COSTEC-31"
+    },
+    "MB": {
+      "runs": 16,
+      "avg_eff": 76.7,
+      "min_eff": 31.6,
+      "max_eff": 98.2,
+      "total_output": 71348,
+      "total_lost_mins": 1034.7,
+      "avg_speed": 18.8,
+      "min_speed": 18.0,
+      "max_speed": 19.0,
+      "top_skus": "AUNFAN-02V2, AUNFAN-01V1, AUNFAN-01V3"
+    },
+    "KALIX II": {
+      "runs": 19,
+      "avg_eff": 78.3,
+      "min_eff": 29.0,
+      "max_eff": 97.3,
+      "total_output": 175868,
+      "total_lost_mins": 895.1,
+      "avg_speed": 46.4,
+      "min_speed": 40.0,
+      "max_speed": 47.0,
+      "top_skus": "DUKAN-04, JRWATK-04, JRWATK-08"
+    },
+    "SHRINKWRAP": {
+      "runs": 14,
+      "avg_eff": 44.2,
+      "min_eff": 0.0,
+      "max_eff": 97.1,
+      "total_output": 131286,
+      "total_lost_mins": 439.8,
+      "avg_speed": 8.0,
+      "min_speed": 8.0,
+      "max_speed": 8.0,
+      "top_skus": "JSTRIC-02V3, AUNFAN-02PKS, AUNFAN-01PK2"
+    },
+    "P2": {
+      "runs": 9,
+      "avg_eff": 82.5,
+      "min_eff": 69.9,
+      "max_eff": 92.7,
+      "total_output": 127278,
+      "total_lost_mins": 473.5,
+      "avg_speed": 54.0,
+      "min_speed": 54.0,
+      "max_speed": 54.0,
+      "top_skus": "JSTRIC-02-100"
+    },
+    "WHITE BROWN": {
+      "runs": 6,
+      "avg_eff": 74.3,
+      "min_eff": 39.2,
+      "max_eff": 99.3,
+      "total_output": 120000,
+      "total_lost_mins": 194.0,
+      "avg_speed": 115.0,
+      "min_speed": 90.0,
+      "max_speed": 120.0,
+      "top_skus": "ALLINT-01"
+    },
+    "B3": {
+      "runs": 18,
+      "avg_eff": 81.1,
+      "min_eff": 32.1,
+      "max_eff": 113.7,
+      "total_output": 167660,
+      "total_lost_mins": 204.0,
+      "avg_speed": 49.1,
+      "min_speed": 46.0,
+      "max_speed": 52.0,
+      "top_skus": "ABACUS-07V2, AVLONI-136, AVLONI-130"
+    },
+    "KALIX I": {
+      "runs": 15,
+      "avg_eff": 81.1,
+      "min_eff": 63.9,
+      "max_eff": 95.2,
+      "total_output": 171924,
+      "total_lost_mins": 794.0,
+      "avg_speed": 44.9,
+      "min_speed": 44.0,
+      "max_speed": 45.0,
+      "top_skus": "DUKCAN-10"
+    },
+    "PPAK-1": {
+      "runs": 8,
+      "avg_eff": 76.5,
+      "min_eff": 46.4,
+      "max_eff": 95.1,
+      "total_output": 71507,
+      "total_lost_mins": -3837.3,
+      "avg_speed": 12.8,
+      "min_speed": 12.0,
+      "max_speed": 18.0,
+      "top_skus": "ENZSOL-02, ENZSOL-01"
+    },
+    "SAGA#3": {
+      "runs": 4,
+      "avg_eff": 88.9,
+      "min_eff": 79.2,
+      "max_eff": 95.1,
+      "total_output": 36000,
+      "total_lost_mins": 107.6,
+      "avg_speed": 33.0,
+      "min_speed": 33.0,
+      "max_speed": 33.0,
+      "top_skus": "LIQRES-01"
+    },
+    "600": {
+      "runs": 2,
+      "avg_eff": 51.7,
+      "min_eff": 45.9,
+      "max_eff": 57.6,
+      "total_output": 4929,
+      "total_lost_mins": -175.6,
+      "avg_speed": 15.0,
+      "min_speed": 15.0,
+      "max_speed": 15.0,
+      "top_skus": "SYNTEC-03"
+    },
+    "B1": {
+      "runs": 6,
+      "avg_eff": 76.0,
+      "min_eff": 49.0,
+      "max_eff": 93.8,
+      "total_output": 35006,
+      "total_lost_mins": 296.8,
+      "avg_speed": 28.0,
+      "min_speed": 28.0,
+      "max_speed": 28.0,
+      "top_skus": "TRUFRE-04, TRUFE-04"
+    }
+  }
+};
+
+// Weekly individual runs
+const weeklyRuns = {
+  "Monday": [
+    {
+      "sku": "TRUFRE-06",
+      "eff": 94,
+      "units": 9600
+    },
+    {
+      "sku": "TRUFRE-06",
+      "eff": 99,
+      "units": 9600
+    },
+    {
+      "sku": "BOOGIE-02",
+      "eff": 103,
+      "units": 9000
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 86,
+      "units": 18400
+    },
+    {
+      "sku": "TRUFRE-06",
+      "eff": 87,
+      "units": 9600
+    }
+  ],
+  "Tuesday": [
+    {
+      "sku": "TRUFRE-06",
+      "eff": 93,
+      "units": 9600
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 107,
+      "units": 19600
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 109,
+      "units": 19200
+    },
+    {
+      "sku": "DUKCAN-11",
+      "eff": 99,
+      "units": 11373
+    },
+    {
+      "sku": "DUKCAN-11",
+      "eff": 101,
+      "units": 11410
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 107,
+      "units": 19600
+    }
+  ],
+  "Wednesday": [
+    {
+      "sku": "DUKCAN-11",
+      "eff": 95,
+      "units": 11100
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 109,
+      "units": 19200
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 89,
+      "units": 17440
+    },
+    {
+      "sku": "TRUFRE-06",
+      "eff": 102,
+      "units": 11700
+    },
+    {
+      "sku": "TRUFRE-06",
+      "eff": 82,
+      "units": 9600
+    },
+    {
+      "sku": "DUKCAN-11",
+      "eff": 88,
+      "units": 10266
+    }
+  ],
+  "Thursday": [
+    {
+      "sku": "RAWSUG-01",
+      "eff": 76,
+      "units": 7600
+    },
+    {
+      "sku": "RAWSUG-01",
+      "eff": 61,
+      "units": 6100
+    },
+    {
+      "sku": "RAWSUG-01",
+      "eff": 76,
+      "units": 4900
+    },
+    {
+      "sku": "DUKCAN-17",
+      "eff": 56,
+      "units": 5627
+    },
+    {
+      "sku": "DUKCAN-17",
+      "eff": 46,
+      "units": 4628
+    },
+    {
+      "sku": "DUKCAN-17",
+      "eff": 45,
+      "units": 4848
+    },
+    {
+      "sku": "TRUFRE-11",
+      "eff": 90,
+      "units": 7600
+    },
+    {
+      "sku": "TRUFRE-05",
+      "eff": 76,
+      "units": 8400
+    }
+  ],
+  "Friday": [
+    {
+      "sku": "TRUFRE-06",
+      "eff": 102,
+      "units": 11700
+    },
+    {
+      "sku": "DUKCAN-11",
+      "eff": 86,
+      "units": 10034
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 52,
+      "units": 10800
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 74,
+      "units": 14400
+    },
+    {
+      "sku": "RAWSUG-02",
+      "eff": 122,
+      "units": 22400
+    },
+    {
+      "sku": "TRUFRE-06",
+      "eff": 97,
+      "units": 9600
+    }
+  ]
+};
+
+// Merge 2025 data into allData
+for (const [sku, data] of Object.entries(data2025.skus)) {
+    if (allData.skus[sku]) {
+        const oldRuns = allData.skus[sku].runs;
+        allData.skus[sku].runs += data.runs;
+        allData.skus[sku].total_output += data.total_output;
+        allData.skus[sku].total_lost_mins += data.total_lost_mins;
+        allData.skus[sku].avg_eff = Math.round(
+            ((allData.skus[sku].avg_eff * oldRuns) + (data.avg_eff * data.runs)) / allData.skus[sku].runs * 10
+        ) / 10;
+        allData.skus[sku].min_eff = Math.min(allData.skus[sku].min_eff, data.min_eff);
+        allData.skus[sku].max_eff = Math.max(allData.skus[sku].max_eff, data.max_eff);
+    } else {
+        allData.skus[sku] = data;
+    }
+}
+
+for (const [line, data] of Object.entries(data2025.lines)) {
+    if (allData.lines[line]) {
+        const oldRuns = allData.lines[line].runs;
+        allData.lines[line].runs += data.runs;
+        allData.lines[line].total_output += data.total_output;
+        allData.lines[line].total_lost_mins += data.total_lost_mins;
+        allData.lines[line].avg_eff = Math.round(
+            ((allData.lines[line].avg_eff * oldRuns) + (data.avg_eff * data.runs)) / allData.lines[line].runs * 10
+        ) / 10;
+        allData.lines[line].min_eff = Math.min(allData.lines[line].min_eff, data.min_eff);
+        allData.lines[line].max_eff = Math.max(allData.lines[line].max_eff, data.max_eff);
+    } else {
+        allData.lines[line] = data;
+    }
+}
+
+
+// ===== STATIC DATA =====
+const monthlyData = {
+    labels: ['Oct', 'Nov', 'Dec', 'Jan'],
+    efficiency: [84.1, 79.6, 79.3, 76.1],
+    lostMinutes: [4671, 4917, 6931, 6267],
+    totalMinutes: [43796, 38032, 53381, 40432],
+    lostPct: [10.7, 12.9, 13.0, 15.5]
+};
+
+const lineData = {
+    names: ['B4', 'P1', 'P2', 'B1', 'BOTTLE LINE II', 'B3', 'ELGIN I', 'BOTTLE LINE', 'PSG', 'B6', 'KALIX I', 'ELGIN II', 'KALIX II', 'B5', 'REB'],
+    efficiency: [93.1, 91.9, 90.9, 90.1, 89.2, 87.7, 86.4, 86.3, 83.3, 78.0, 75.2, 72.2, 68.6, 64.1, 62.8],
+    runs: [27, 12, 23, 77, 7, 9, 53, 12, 46, 59, 16, 16, 32, 8, 35]
+};
+
+const operatorData = {
+    names: ['GLORIA', 'EVA', 'NELLY', 'NORMA', 'ROCIO M', 'LINDA', 'MARTIN', 'KARLA', 'CHUYA', 'SERENA', 'ANDY'],
+    efficiency: [86.0, 83.1, 82.8, 81.8, 81.4, 80.3, 80.3, 78.8, 77.4, 73.5, 72.9],
+    runs: [36, 60, 63, 22, 43, 16, 38, 49, 64, 30, 46]
+};
+
+const weeklyData = {
+    daily: {
+        '01/19': { day: 'Monday', runs: 5, efficiency: 91.0, units: 31900, total_labor: 12 },
+        '01/20': { day: 'Tuesday', runs: 6, efficiency: 100.0, units: 74812, total_labor: 24 },
+        '01/21': { day: 'Wednesday', runs: 6, efficiency: 93.0, units: 72234, total_labor: 22 },
+        '01/22': { day: 'Thursday', runs: 8, efficiency: 77.0, units: 63973, total_labor: 31 },
+        '01/23': { day: 'Friday', runs: 6, efficiency: 65.0, units: 39745, total_labor: 32 }
+    },
+    by_sku: {
+        'TRUFRE-06': { runs: 5, efficiency: 97.0, units: 47800, labor: 2.0, lost_mins: 14.5, lines: 'B1' },
+        'RAWSUG 02': { runs: 5, efficiency: 89.0, units: 79210, labor: 2.0, lost_mins: 194.3, lines: 'B4' },
+        'DUKCAN-11': { runs: 4, efficiency: 95.0, units: 40041, labor: 7.5, lost_mins: 84.8, lines: 'ELGIN I' },
+        'DUKCAN-17': { runs: 3, efficiency: 49.0, units: 15103, labor: 7.0, lost_mins: 422.0, lines: 'REB' },
+        'RAWSUG 01': { runs: 3, efficiency: 71.0, units: 18600, labor: 2.0, lost_mins: 190.8, lines: 'B5' }
+    }
+};
+
+const downtimeData = {
+    items: ['DUKCAN-17', 'TRUFRE-01', 'DAPBAB-04V2', 'DUKCAN-18', 'PACTEC-06G'],
+    mins: [2263, 1808, 1272, 1105, 703]
+};
+
+const topPerformers = [
+    { sku: 'DUKCAN-01V1', eff: 95.0, runs: 7, lines: 'ELGIN I', speed: 28.1 },
+    { sku: 'TRUFRE-06', eff: 95.0, runs: 15, lines: 'B1', speed: 28.9 },
+    { sku: 'TRUFRE-04', eff: 93.0, runs: 14, lines: 'B1', speed: 30.0 },
+    { sku: 'DAPBAB-01V1', eff: 93.0, runs: 24, lines: 'P2, P1', speed: 68.0 },
+    { sku: 'BOOGIE-02', eff: 93.0, runs: 13, lines: 'B4', speed: 34.2 },
+    { sku: 'DUKCAN-05V1', eff: 92.0, runs: 11, lines: 'ELGIN I', speed: 27.8 },
+    { sku: 'TRUFRE-05', eff: 91.0, runs: 13, lines: 'B1', speed: 29.8 },
+    { sku: 'BOOGIE-01', eff: 89.0, runs: 13, lines: 'BOTTLE LINE', speed: 31.1 },
+    { sku: 'DAPBAB-04V2', eff: 85.0, runs: 32, lines: 'PSG', speed: 10.8 },
+    { sku: 'TRUFRE-01', eff: 78.0, runs: 40, lines: 'B6', speed: 44.0 }
+];
+
+const bottomPerformers = [
+    { sku: 'PACTEC-06G', eff: 47.0, runs: 5, lines: 'P3, PD3', speed: 12.0 },
+    { sku: 'FUCHSL-11', eff: 51.0, runs: 5, lines: 'KENTEX', speed: 26.4 },
+    { sku: 'DUKCAN-17', eff: 58.0, runs: 22, lines: 'REB', speed: 34.9 },
+    { sku: 'TRUFRE-12', eff: 59.0, runs: 5, lines: 'B1', speed: 29.0 },
+    { sku: 'PURPRO-01', eff: 60.0, runs: 5, lines: 'B5', speed: 26.0 },
+    { sku: 'OKECOM-07', eff: 66.0, runs: 5, lines: 'REB', speed: 35.0 },
+    { sku: 'DUKCAN-18', eff: 69.0, runs: 14, lines: 'KALIX II', speed: 46.9 },
+    { sku: 'DUKCAN-07V1', eff: 70.0, runs: 8, lines: 'KALIX I', speed: 44.0 },
+    { sku: 'PACTEC-01G', eff: 70.0, runs: 11, lines: 'P3', speed: 12.7 },
+    { sku: 'DAPBAB-26', eff: 70.0, runs: 6, lines: 'PSG', speed: 10.5 }
+];
+
+// ===== COLORS =====
+const colors = {
+    primary: '#1e40af',
+    secondary: '#3b82f6',
+    ok: '#16a34a',
+    warn: '#f59e0b',
+    bad: '#dc2626',
+    goal: '#7c3aed'
+};
+
+// ===== CHART PLUGIN: GOAL LINE =====
+const goalLinePlugin = {
+    id: 'goalLine',
+    afterDatasetsDraw(chart) {
+        const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+        if (!y) return;
+        
+        const goalValue = y.getPixelForValue(85);
+        
+        ctx.save();
+        ctx.strokeStyle = colors.goal;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(left, goalValue);
+        ctx.lineTo(right, goalValue);
+        ctx.stroke();
+        
+        ctx.fillStyle = colors.goal;
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('Goal: 85%', right - 70, goalValue - 5);
+        ctx.restore();
+    }
+};
+
+// ===== UTILITY FUNCTIONS =====
+function toggleQuality() {
+    const content = document.getElementById('qualityContent');
+    const icon = document.getElementById('toggleIcon');
+    content.classList.toggle('show');
+    icon.textContent = content.classList.contains('show') ? '▲' : '▼';
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    event.target.classList.add('active');
+    document.getElementById(tabName).classList.add('active');
+}
+
+function filterSKU() {
+    const selected = document.getElementById('skuFilter').value;
+    const details = document.getElementById('skuDetails');
+    
+    if (!selected) {
+        details.innerHTML = '<p style="color:#64748b;margin-top:20px">Select a SKU to view detailed historical performance</p>';
+        return;
+    }
+    
+    const sku = allData.skus[selected];
+    const gap = 85 - sku.avg_eff;
+    const status = sku.avg_eff >= 85 ? 'good' : sku.avg_eff >= 75 ? 'warn' : 'bad';
+    const trend = sku.recent_eff ? (sku.recent_eff > sku.avg_eff ? '↗️ Improving' : '↘️ Declining') : 'No recent data';
+    
+    details.innerHTML = `
+        <div class="tip tip-good" style="margin-top:20px">
+            <div class="tip-title">${selected} - Historical Performance Summary</div>
+            <div class="tip-detail">
+                <strong>Total Runs:</strong> ${sku.runs} | <strong>Total Output:</strong> ${sku.total_output.toLocaleString()} units<br>
+                <strong>Average Efficiency:</strong> <span class="badge ${status}">${sku.avg_eff}%</span> (${gap > 0 ? gap.toFixed(1) + '% below goal' : 'above goal'})<br>
+                <strong>Performance Range:</strong> ${sku.min_eff}% (worst) to ${sku.max_eff}% (best) - ${(sku.max_eff - sku.min_eff).toFixed(1)}% spread<br>
+                <strong>Speed Range (CPM):</strong> ${sku.min_speed} - ${sku.max_speed} cycles/min (Avg: ${sku.avg_speed} CPM)<br>
+                <strong>Average Manning:</strong> ${sku.avg_manning} workers per run<br>
+                <strong>Primary Lines:</strong> ${sku.top_lines}<br>
+                <strong>Total Lost Minutes:</strong> ${sku.total_lost_mins.toLocaleString()} mins<br>
+                ${sku.recent_eff ? `<strong>Recent Performance:</strong> ${sku.recent_eff}% in last month (${sku.recent_runs} runs) ${trend}<br>` : ''}
+                <br>
+                💡 <strong>Opportunity:</strong> If all runs matched best (${sku.max_eff}%), efficiency would improve by ${(sku.max_eff - sku.avg_eff).toFixed(1)}pp.
+            </div>
+        </div>
+    `;
+}
+
+function filterLine() {
+    const selected = document.getElementById('lineFilter').value;
+    const details = document.getElementById('lineDetails');
+    
+    if (!selected) {
+        details.innerHTML = '<p style="color:#64748b;margin-top:20px">Select a line to view detailed historical performance</p>';
+        return;
+    }
+    
+    const line = allData.lines[selected];
+    const gap = 85 - line.avg_eff;
+    const status = line.avg_eff >= 85 ? 'good' : line.avg_eff >= 75 ? 'warn' : 'bad';
+    const trend = line.recent_eff ? (line.recent_eff > line.avg_eff ? '↗️ Improving' : '↘️ Declining') : 'No recent data';
+    
+    details.innerHTML = `
+        <div class="tip tip-good" style="margin-top:20px">
+            <div class="tip-title">${selected} - Line Historical Performance</div>
+            <div class="tip-detail">
+                <strong>Total Runs:</strong> ${line.runs} | <strong>Total Output:</strong> ${line.total_output.toLocaleString()} units<br>
+                <strong>Average Efficiency:</strong> <span class="badge ${status}">${line.avg_eff}%</span> (${gap > 0 ? gap.toFixed(1) + '% below goal' : 'above goal'})<br>
+                <strong>Performance Range:</strong> ${line.min_eff}% (worst) to ${line.max_eff}% (best) - ${(line.max_eff - line.min_eff).toFixed(1)}% spread<br>
+                <strong>Speed Range (CPM):</strong> ${line.min_speed} - ${line.max_speed} cycles/min (Avg: ${line.avg_speed} CPM)<br>
+                <strong>Top SKUs Run:</strong> ${line.top_skus}<br>
+                <strong>Total Lost Minutes:</strong> ${line.total_lost_mins.toLocaleString()} mins<br>
+                ${line.recent_eff ? `<strong>Recent Performance:</strong> ${line.recent_eff}% in last month (${line.recent_runs} runs) ${trend}<br>` : ''}
+                <br>
+                💡 <strong>Opportunity:</strong> If all runs matched best (${line.max_eff}%), efficiency would improve by ${(line.max_eff - line.avg_eff).toFixed(1)}pp.
+            </div>
+        </div>
+    `;
+}
+
+// ===== INITIALIZE CHARTS =====
+function initCharts() {
+    // Monthly Efficiency Chart
+    new Chart(document.getElementById('monthlyEffChart'), {
+        type: 'line',
+        data: {
+            labels: monthlyData.labels,
+            datasets: [{
+                data: monthlyData.efficiency,
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + '20',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    min: 70,
+                    max: 90,
+                    ticks: { callback: v => v + '%' }
+                }
+            }
+        },
+        plugins: [goalLinePlugin]
+    });
+    
+    // Monthly Lost Minutes Chart
+    new Chart(document.getElementById('monthlyLostChart'), {
+        type: 'bar',
+        data: {
+            labels: monthlyData.labels,
+            datasets: [{
+                data: monthlyData.lostMinutes,
+                backgroundColor: colors.bad
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const idx = ctx.dataIndex;
+                            return `Lost: ${monthlyData.lostMinutes[idx].toLocaleString()} mins (${monthlyData.lostPct[idx]}% of ${monthlyData.totalMinutes[idx].toLocaleString()} total)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Line Efficiency Chart
+    new Chart(document.getElementById('lineEffChart'), {
+        type: 'bar',
+        data: {
+            labels: lineData.names,
+            datasets: [{
+                data: lineData.efficiency,
+                backgroundColor: lineData.efficiency.map(e => e >= 85 ? colors.ok : e >= 75 ? colors.warn : colors.bad)
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    max: 100,
+                    ticks: { callback: v => v + '%' }
+                }
+            }
+        }
+    });
+    
+    // Line Runs Chart
+    new Chart(document.getElementById('lineRunsChart'), {
+        type: 'bar',
+        data: {
+            labels: lineData.names,
+            datasets: [{
+                data: lineData.runs,
+                backgroundColor: colors.secondary
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    });
+    
+    // Individual Runs Chart
+    const runLabels = [];
+    const runEfficiencies = [];
+    const runColors = [];
+    const runMetadata = [];
+    
+    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].forEach(day => {
+        if (weeklyRuns[day]) {
+            weeklyRuns[day].forEach((run, idx) => {
+                runLabels.push(`${day.substring(0, 3)} ${idx + 1}`);
+                runEfficiencies.push(run.eff);
+                runMetadata.push({sku: run.sku, units: run.units, eff: run.eff});
+                
+                if (run.eff >= 85) {
+                    runColors.push('#16a34a');
+                } else if (run.eff >= 75) {
+                    runColors.push('#f59e0b');
+                } else {
+                    runColors.push('#dc2626');
+                }
+            });
+        }
+    });
+    
+    new Chart(document.getElementById('weeklyIndividualRunsChart'), {
+        type: 'bar',
+        data: {
+            labels: runLabels,
+            datasets: [{
+                data: runEfficiencies,
+                backgroundColor: runColors,
+                label: 'Efficiency %'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const idx = context[0].dataIndex;
+                            return runMetadata[idx].sku;
+                        },
+                        label: function(context) {
+                            const idx = context.dataIndex;
+                            return [
+                                `Efficiency: ${runMetadata[idx].eff}%`,
+                                `Units: ${runMetadata[idx].units.toLocaleString()}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 130,
+                    ticks: { callback: v => v + '%' }
+                },
+                x: {
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 90,
+                        minRotation: 45,
+                        font: { size: 10 }
+                    }
+                }
+            }
+        },
+        plugins: [goalLinePlugin]
+    });
+    
+    // Weekly Efficiency Chart
+    const weekDays = Object.keys(weeklyData.daily).sort();
+    new Chart(document.getElementById('weeklyEffChart'), {
+        type: 'bar',
+        data: {
+            labels: weekDays.map(k => weeklyData.daily[k].day),
+            datasets: [{
+                data: weekDays.map(k => weeklyData.daily[k].efficiency),
+                backgroundColor: weekDays.map(k => {
+                    const e = weeklyData.daily[k].efficiency;
+                    return e >= 85 ? colors.ok : e >= 75 ? colors.warn : colors.bad;
+                })
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    min: 60,
+                    max: 105,
+                    ticks: { callback: v => v + '%' }
+                }
+            }
+        },
+        plugins: [goalLinePlugin]
+    });
+    
+    // Weekly Units Chart
+    new Chart(document.getElementById('weeklyUnitsChart'), {
+        type: 'bar',
+        data: {
+            labels: weekDays.map(k => weeklyData.daily[k].day),
+            datasets: [{
+                data: weekDays.map(k => weeklyData.daily[k].units),
+                backgroundColor: colors.secondary
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+    
+    // Weekly Labor Chart
+    new Chart(document.getElementById('weeklyLaborChart'), {
+        type: 'bar',
+        data: {
+            labels: weekDays.map(k => weeklyData.daily[k].day),
+            datasets: [{
+                data: weekDays.map(k => weeklyData.daily[k].total_labor),
+                backgroundColor: colors.primary
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+    
+    // Operators Chart
+    new Chart(document.getElementById('operatorsChart'), {
+        type: 'bar',
+        data: {
+            labels: operatorData.names,
+            datasets: [{
+                data: operatorData.efficiency,
+                backgroundColor: operatorData.efficiency.map(e => e >= 85 ? colors.ok : colors.warn)
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    min: 70,
+                    max: 90,
+                    ticks: { callback: v => v + '%' }
+                }
+            }
+        },
+        plugins: [goalLinePlugin]
+    });
+    
+    // Downtime Chart
+    new Chart(document.getElementById('downtimeChart'), {
+        type: 'bar',
+        data: {
+            labels: downtimeData.items,
+            datasets: [{
+                data: downtimeData.mins,
+                backgroundColor: colors.bad
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ===== POPULATE TABLES =====
+function populateTables() {
+    // Operators Table
+    let opHTML = '<thead><tr><th>Rank</th><th>Operator</th><th>Runs</th><th>Efficiency</th><th>vs Goal</th></tr></thead><tbody>';
+    operatorData.names.forEach((name, i) => {
+        const eff = operatorData.efficiency[i];
+        const status = eff >= 85 ? 'good' : 'warn';
+        opHTML += `
+            <tr>
+                <td>${i + 1}</td>
+                <td><strong>${name}</strong></td>
+                <td>${operatorData.runs[i]}</td>
+                <td>${eff}%</td>
+                <td><span class="badge ${status}">${eff >= 85 ? 'Above' : 'Below'}</span></td>
+            </tr>
+        `;
+    });
+    opHTML += '</tbody>';
+    document.getElementById('operatorsTable').innerHTML = opHTML;
+    
+    // Weekly SKU Table
+    let skuHTML = '<thead><tr><th>SKU</th><th>Runs</th><th>Units</th><th>Efficiency</th><th>Labor</th><th>Lost Mins</th><th>Lines</th></tr></thead><tbody>';
+    Object.entries(weeklyData.by_sku).forEach(([sku, data]) => {
+        const status = data.efficiency >= 85 ? 'good' : data.efficiency >= 75 ? 'warn' : 'bad';
+        skuHTML += `
+            <tr>
+                <td><strong>${sku}</strong></td>
+                <td>${data.runs}</td>
+                <td>${data.units.toLocaleString()}</td>
+                <td><span class="badge ${status}">${data.efficiency}%</span></td>
+                <td>${data.labor}</td>
+                <td>${data.lost_mins}</td>
+                <td>${data.lines}</td>
+            </tr>
+        `;
+    });
+    skuHTML += '</tbody>';
+    document.getElementById('weeklySKUTable').innerHTML = skuHTML;
+    
+    // Top Performers Table
+    let topHTML = '<thead><tr><th>SKU</th><th>Runs</th><th>Avg Eff</th><th>Primary Line</th><th>Avg Speed (CPM)</th></tr></thead><tbody>';
+    topPerformers.forEach(p => {
+        topHTML += `
+            <tr>
+                <td><strong>${p.sku}</strong></td>
+                <td>${p.runs}</td>
+                <td><span class="badge good">${p.eff}%</span></td>
+                <td>${p.lines}</td>
+                <td>${p.speed}</td>
+            </tr>
+        `;
+    });
+    topHTML += '</tbody>';
+    document.getElementById('topHistTable').innerHTML = topHTML;
+    
+    // Bottom Performers Table
+    let botHTML = '<thead><tr><th>SKU</th><th>Runs</th><th>Avg Eff</th><th>Primary Line</th><th>Avg Speed (CPM)</th></tr></thead><tbody>';
+    bottomPerformers.forEach(p => {
+        botHTML += `
+            <tr>
+                <td><strong>${p.sku}</strong></td>
+                <td>${p.runs}</td>
+                <td><span class="badge bad">${p.eff}%</span></td>
+                <td>${p.lines}</td>
+                <td>${p.speed}</td>
+            </tr>
+        `;
+    });
+    botHTML += '</tbody>';
+    document.getElementById('botHistTable').innerHTML = botHTML;
+}
+
+// ===== POPULATE DROPDOWNS (THE FIX!) =====
+function populateDropdowns() {
+    const skuFilter = document.getElementById('skuFilter');
+    const lineFilter = document.getElementById('lineFilter');
+    
+    // **CRITICAL FIX**: Load ALL 91 SKUs (not just 10)
+    Object.keys(allData.skus).sort().forEach(sku => {
+        const opt = document.createElement('option');
+        opt.value = sku;
+        opt.textContent = `${sku} (${allData.skus[sku].runs} runs, ${allData.skus[sku].avg_eff}%)`;
+        skuFilter.appendChild(opt);
+    });
+    
+    // **CRITICAL FIX**: Load ALL 25 lines (not just 5)
+    Object.keys(allData.lines).sort().forEach(line => {
+        const opt = document.createElement('option');
+        opt.value = line;
+        opt.textContent = `${line} (${allData.lines[line].runs} runs, ${allData.lines[line].avg_eff}%)`;
+        lineFilter.appendChild(opt);
+    });
+}
+
+// ===== POPULATE ANALYSIS LISTS =====
+function populateAnalysisLists() {
+    // Find improving and declining SKUs
+    let improving = [];
+    let declining = [];
+    
+    Object.keys(allData.skus).forEach(sku => {
+        const s = allData.skus[sku];
+        if (s.recent_eff) {
+            const diff = s.recent_eff - s.avg_eff;
+            if (diff > 5) {
+                improving.push({ sku, diff: diff.toFixed(1), hist: s.avg_eff, recent: s.recent_eff });
+            } else if (diff < -5) {
+                declining.push({ sku, diff: Math.abs(diff).toFixed(1), hist: s.avg_eff, recent: s.recent_eff });
+            }
+        }
+    });
+    
+    document.getElementById('improvingList').innerHTML = improving.length 
+        ? improving.map(s => `<strong>${s.sku}:</strong> ${s.hist}% → ${s.recent}% (+${s.diff}pp)`).join('<br>')
+        : 'No significant improvements detected (need >5pp change)';
+    
+    document.getElementById('decliningList').innerHTML = declining.length
+        ? declining.map(s => `<strong>${s.sku}:</strong> ${s.hist}% → ${s.recent}% (-${s.diff}pp)`).join('<br>')
+        : 'No significant declines detected';
+    
+    // Find best and problem lines
+    let bestLines = [];
+    let problemLines = [];
+    
+    Object.keys(allData.lines).forEach(line => {
+        const l = allData.lines[line];
+        if (l.avg_eff >= 85) {
+            bestLines.push({ line, eff: l.avg_eff, runs: l.runs });
+        }
+        if (l.avg_eff < 75) {
+            problemLines.push({ line, eff: l.avg_eff, runs: l.runs, lost: l.total_lost_mins });
+        }
+    });
+    
+    document.getElementById('bestLinesList').innerHTML = bestLines.length
+        ? bestLines.map(l => `<strong>${l.line}:</strong> ${l.eff}% avg (${l.runs} runs)`).join('<br>')
+        : 'No lines averaging ≥85%';
+    
+    document.getElementById('problemLinesList').innerHTML = problemLines.length
+        ? problemLines.map(l => `<strong>${l.line}:</strong> ${l.eff}% avg (${l.runs} runs, ${l.lost.toLocaleString()} lost mins) - Needs audit`).join('<br>')
+        : 'All lines >75%';
+}
+
+</script>
+
+<script>
+    const CREDENTIALS = {
+        username: 'Paket',
+        password: 'Paket2026!'
+    };
+    
+    function handleLogin(event) {
+        event.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorMsg = document.getElementById('loginError');
+        
+        if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('mainDashboard').style.display = 'block';
+            sessionStorage.setItem('paket_auth', 'true');
+            
+            setTimeout(function() {
+                console.log('Initializing dashboard...');
+                console.log(`SKUs: ${Object.keys(allData.skus).length}, Lines: ${Object.keys(allData.lines).length}`);
+                
+                initCharts();
+                populateTables();
+                populateDropdowns();
+                populateAnalysisLists();
+                filterSKU();
+                filterLine();
+                
+                console.log('Dashboard ready!');
+            }, 100);
+        } else {
+            errorMsg.classList.add('show');
+            document.getElementById('password').value = '';
+            setTimeout(() => errorMsg.classList.remove('show'), 3000);
+        }
+        return false;
+    }
+    
+    // Auto-login
+    if (sessionStorage.getItem('paket_auth') === 'true') {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('mainDashboard').style.display = 'block';
+        setTimeout(function() {
+            console.log('Initializing dashboard...');
+            initCharts();
+            populateTables();
+            populateDropdowns();
+            populateAnalysisLists();
+            filterSKU();
+            filterLine();
+            console.log('Dashboard ready!');
+        }, 100);
+    }
+    
+    // Logout: Ctrl+Shift+L
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+            sessionStorage.removeItem('paket_auth');
+            location.reload();
+        }
+    });
+</script>
+    </div>
+
+</body>
+</html>
