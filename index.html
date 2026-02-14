@@ -1,0 +1,4465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paket Production Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0f1117;
+            --bg-card: #1a1d27;
+            --bg-card-hover: #22252f;
+            --bg-input: #252830;
+            --border: #2d303a;
+            --border-focus: #4f8cff;
+            --text-primary: #e8eaed;
+            --text-secondary: #8b8fa3;
+            --text-dim: #5c6070;
+            --accent-blue: #4f8cff;
+            --accent-green: #34d399;
+            --accent-yellow: #fbbf24;
+            --accent-red: #f87171;
+            --accent-orange: #fb923c;
+            --accent-purple: #a78bfa;
+            --goal-line: #f87171;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .shell { max-width: 1600px; margin: 0 auto; padding: 24px; }
+
+        /* ── Header ── */
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 28px 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 20px;
+        }
+        .dash-header__left h1 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+        .dash-header__left h1 span {
+            color: var(--accent-blue);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+        .dash-header__left .subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .dash-header__right {
+            text-align: right;
+        }
+        .goal-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(79, 140, 255, 0.12);
+            border: 1px solid rgba(79, 140, 255, 0.25);
+            color: var(--accent-blue);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .updated-tag {
+            font-size: 12px;
+            color: var(--accent-green);
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        /* ── KPI Row ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .kpi {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px 22px;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+        }
+        .kpi--blue::before { background: var(--accent-blue); }
+        .kpi--green::before { background: var(--accent-green); }
+        .kpi--red::before { background: var(--accent-red); }
+        .kpi--yellow::before { background: var(--accent-yellow); }
+        .kpi--purple::before { background: var(--accent-purple); }
+        .kpi__label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .kpi__value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .kpi__trend {
+            font-size: 12px;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .kpi__trend--up { color: var(--accent-green); }
+        .kpi__trend--down { color: var(--accent-red); }
+        .kpi__trend--neutral { color: var(--text-secondary); }
+
+        /* ── Tabs ── */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--text-primary); background: var(--bg-input); }
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .card__title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .card__subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* ── Grid helpers ── */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+        /* ── Tab panes ── */
+        .pane { display: none; }
+        .pane.active { display: block; }
+
+        /* ── Tables ── */
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            font-weight: 600;
+        }
+        td {
+            padding: 10px 14px;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-primary);
+        }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge--green { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+        .badge--yellow { background: rgba(251,191,36,0.15); color: var(--accent-yellow); }
+        .badge--red { background: rgba(248,113,113,0.15); color: var(--accent-red); }
+        .badge--blue { background: rgba(79,140,255,0.15); color: var(--accent-blue); }
+
+        /* ── Select inputs ── */
+        .filter-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8fa3' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+        .filter-select:focus { outline: none; border-color: var(--accent-blue); }
+
+        /* ── Insight Callouts ── */
+        .callout {
+            padding: 16px 18px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+            border-left: 3px solid;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .callout--red { background: rgba(248,113,113,0.06); border-color: var(--accent-red); }
+        .callout--green { background: rgba(52,211,153,0.06); border-color: var(--accent-green); }
+        .callout--yellow { background: rgba(251,191,36,0.06); border-color: var(--accent-yellow); }
+        .callout--blue { background: rgba(79,140,255,0.06); border-color: var(--accent-blue); }
+        .callout__title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .callout__body { color: var(--text-secondary); }
+
+        /* ── Ranking List Items ── */
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            margin-bottom: 6px;
+            transition: background 0.15s;
+        }
+        .rank-item:hover { background: rgba(255,255,255,0.05); }
+        .rank-item__left { display: flex; align-items: center; gap: 10px; }
+        .rank-item__pos {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+            color: var(--text-dim);
+        }
+        .rank-item__name { font-weight: 600; font-size: 13px; }
+        .rank-item__meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+        .rank-item__value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .rank-item__sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-align: right;
+        }
+
+        /* ── Executive Summary Cards ── */
+        .exec-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .exec-card {
+            background: rgba(79,140,255,0.08);
+            border: 1px solid rgba(79,140,255,0.15);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            text-align: center;
+        }
+        .exec-card__val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+        .exec-card__lbl {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* ── Detail card for lookups ── */
+        .lookup-detail {
+            margin-top: 14px;
+            padding: 16px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        .lookup-detail h4 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: var(--accent-blue);
+        }
+        .lookup-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 20px;
+        }
+        .lookup-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+        .lookup-stat__label { color: var(--text-secondary); }
+        .lookup-stat__val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+        /* ── Improvement Bar ── */
+        .improve-bar {
+            margin-top: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .improve-bar--red {
+            background: rgba(248,113,113,0.1);
+            color: var(--accent-red);
+        }
+        .improve-bar--yellow {
+            background: rgba(251,191,36,0.1);
+            color: var(--accent-yellow);
+        }
+
+        /* ── Efficiency gauge bar ── */
+        .eff-gauge {
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .eff-gauge__fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        /* ── Section dividers ── */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1100px) {
+            .kpi-row { grid-template-columns: repeat(3, 1fr); }
+            .g2, .g3, .g4 { grid-template-columns: 1fr; }
+            .exec-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 700px) {
+            .kpi-row { grid-template-columns: 1fr 1fr; }
+            .dash-header { flex-direction: column; gap: 12px; }
+            .tab-bar { flex-wrap: nowrap; }
+        }
+
+        /* Canvas chart containers */
+        .chart-container { position: relative; width: 100%; }
+        .chart-container--sm { height: 260px; }
+        .chart-container--md { height: 340px; }
+        .chart-container--lg { height: 420px; }
+        .chart-container canvas { width: 100% !important; }
+
+        /* scrollable containers */
+        .scroll-y { max-height: 480px; overflow-y: auto; }
+        .scroll-y::-webkit-scrollbar { width: 4px; }
+        .scroll-y::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* ── Login Screen ── */
+        #login-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-deep);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 48px 40px;
+            width: 400px;
+            max-width: 90vw;
+            text-align: center;
+        }
+        .login-box h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+        .login-box h2 span { color: var(--accent-blue); font-family: 'JetBrains Mono', monospace; }
+        .login-box .login-sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+        .login-field {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .login-field:focus { outline: none; border-color: var(--accent-blue); }
+        .login-field::placeholder { color: var(--text-dim); }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--accent-blue);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+        .login-btn:hover { opacity: 0.9; }
+        .login-error {
+            color: var(--accent-red);
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 20px;
+        }
+
+        /* ── Admin Panel ── */
+        #adminPanel {
+            display: none;
+            background: linear-gradient(135deg, rgba(79,140,255,0.08), rgba(52,211,153,0.05));
+            border: 1px solid rgba(79,140,255,0.25);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .admin-header__title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .admin-header__badge {
+            background: rgba(79,140,255,0.15);
+            color: var(--accent-blue);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.02);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent-blue);
+            background: rgba(79,140,255,0.05);
+        }
+        .upload-zone__icon { font-size: 28px; margin-bottom: 8px; }
+        .upload-zone__text { font-size: 13px; color: var(--text-secondary); }
+        .upload-zone__text strong { color: var(--accent-blue); }
+        .upload-zone input[type=file] { display: none; }
+        .upload-progress {
+            margin-top: 14px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            display: none;
+        }
+        .upload-progress.processing {
+            display: block;
+            background: rgba(251,191,36,0.1);
+            color: var(--accent-yellow);
+            border: 1px solid rgba(251,191,36,0.2);
+        }
+        .upload-progress.success {
+            display: block;
+            background: rgba(52,211,153,0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(52,211,153,0.2);
+        }
+        .upload-progress.error {
+            display: block;
+            background: rgba(248,113,113,0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(248,113,113,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── LOGIN SCREEN ── -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2><span>PAKET</span> Dashboard</h2>
+            <div class="login-sub">Production Efficiency Analytics</div>
+            <input type="text" id="login-user" class="login-field" placeholder="Username" autocomplete="off">
+            <input type="password" id="login-pass" class="login-field" placeholder="Password" autocomplete="off">
+            <button class="login-btn" onclick="attemptLogin()">Sign In</button>
+            <div class="login-error" id="login-error"></div>
+        </div>
+    </div>
+
+    <div id="dashboard-main" style="display:none;">
+    <div class="shell">
+
+    <!-- ─── HEADER ─── -->
+    <div class="dash-header">
+        <div class="dash-header__left">
+            <h1><span>PAKET</span> Production Dashboard</h1>
+            <div class="subtitle">Jan 2025 – Feb 2026 &nbsp;·&nbsp; 1,423 Runs &nbsp;·&nbsp; 104 SKUs &nbsp;·&nbsp; 22 Lines (cleaned)</div>
+        </div>
+        <div class="dash-header__right">
+            <div class="goal-pill">🎯 Goal: ≥ 85% Efficiency</div>
+            <div class="updated-tag" id="updatedTag">Updated Feb 6, 2026 5:00 PM CST</div>
+        </div>
+    </div>
+
+    <!-- ─── ADMIN PANEL ─── -->
+    <div id="adminPanel">
+        <div class="admin-header">
+            <div class="admin-header__title">
+                🔧 <span>Admin Data Upload</span>
+                <span class="admin-header__badge">ADMIN</span>
+                <span id="fbStatus" class="admin-header__badge" style="margin-left:6px;"></span>
+            </div>
+            <div style="font-size:12px; color:var(--text-dim);">Upload new shift report to refresh dashboard data</div>
+        </div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-zone__icon">📊</div>
+            <div class="upload-zone__text">
+                <strong>Click to upload</strong> or drag & drop your Excel file<br>
+                <span style="font-size:11px; color:var(--text-dim); margin-top:4px; display:inline-block;">Accepts .xlsx shift report — data will be cleaned & standardized automatically</span>
+            </div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileUpload(this.files[0])">
+        </div>
+        <div class="upload-progress" id="uploadProgress"></div>
+    </div>
+
+    <!-- ─── KPI ROW ─── -->
+    <div class="kpi-row">
+        <div class="kpi kpi--blue">
+            <div class="kpi__label">Overall Efficiency</div>
+            <div class="kpi__value">78.5%</div>
+            <div class="kpi__trend kpi__trend--neutral">Jan 2025 – Feb 2026 avg</div>
+        </div>
+        <div class="kpi kpi--green">
+            <div class="kpi__label">Last Week Avg</div>
+            <div class="kpi__value">68.7%</div>
+            <div class="kpi__trend kpi__trend--neutral">40 runs · Feb 02 – Feb 06, 2026</div>
+        </div>
+        <div class="kpi kpi--red">
+            <div class="kpi__label">Lost Minutes This Month</div>
+            <div class="kpi__value" id="kpi-lost">—</div>
+            <div class="kpi__trend" id="kpi-lost-trend">—</div>
+        </div>
+        <div class="kpi kpi--yellow">
+            <div class="kpi__label">Excellence Rate</div>
+            <div class="kpi__value" id="kpi-excellence">—</div>
+            <div class="kpi__trend kpi__trend--neutral">SKUs ≥ 85% (min 5 runs)</div>
+        </div>
+        <div class="kpi kpi--purple">
+            <div class="kpi__label">SKUs Tracked</div>
+            <div class="kpi__value">104</div>
+            <div class="kpi__trend kpi__trend--neutral">Across all history</div>
+        </div>
+    </div>
+
+    <!-- ─── TAB BAR ─── -->
+    <div class="tab-bar" id="tabBar">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="weekly">Weekly Detail</button>
+        <button class="tab-btn" data-tab="operators">Operators</button>
+        <button class="tab-btn" data-tab="insights">Insights</button>
+        <button class="tab-btn" data-tab="manager">Manager View</button>
+        <button class="tab-btn" data-tab="historical">Historical Analysis</button>
+    </div>
+
+    <!-- ═══════════════ OVERVIEW ═══════════════ -->
+    <div id="pane-overview" class="pane active">
+        <div class="g2">
+            <div class="card">
+                <div class="card__title">Monthly Efficiency vs Goal</div>
+                <div class="card__subtitle">Last 14 months of data</div>
+                <div class="chart-container chart-container--sm"><canvas id="chMonthEff"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card__title">Monthly Lost Minutes (Last 6 Months)</div>
+                <div class="card__subtitle">Hover for % of total available time</div>
+                <div class="chart-container chart-container--sm"><canvas id="chMonthLost"></canvas></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card__title">Line Efficiency (All Time)</div>
+            <div class="card__subtitle">Sorted by efficiency · Color: green ≥85%, yellow 75–84%, red &lt;75%</div>
+            <div class="chart-container chart-container--lg"><canvas id="chLineEff"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card__title">Runs per Line</div>
+            <div class="card__subtitle">Total production runs by line</div>
+            <div class="chart-container chart-container--lg"><canvas id="chLineRuns"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ WEEKLY DETAIL ═══════════════ -->
+    <div id="pane-weekly" class="pane">
+        <div class="card">
+            <div class="card__title">Daily Efficiency — Feb 02 – Feb 06, 2026</div>
+            <div class="chart-container chart-container--sm"><canvas id="chWeekEff"></canvas></div>
+        </div>
+        <div class="g2">
+            <div class="card">
+                <div class="card__title">Daily Units Produced</div>
+                <div class="chart-container chart-container--sm"><canvas id="chWeekUnits"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card__title">Total Labor Count per Day</div>
+                <div class="card__subtitle">Sum of all workers across all lines</div>
+                <div class="chart-container chart-container--sm"><canvas id="chWeekLabor"></canvas></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card__title">1st Shift (SL) — Individual Production Runs — Feb 02 – Feb 06, 2026</div>
+            <div class="card__subtitle">Each bar = one 1st-shift run · Hover for SKU, line, units &amp; efficiency · Green ≥85%, Yellow 75–84%, Red &lt;75%</div>
+            <div class="chart-container chart-container--md"><canvas id="chWeekRuns1"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card__title">2nd Shift (TS) — Individual Production Runs — Feb 02 – Feb 06, 2026</div>
+            <div class="card__subtitle">Each bar = one 2nd-shift run · Hover for SKU, line, units &amp; efficiency · Green ≥85%, Yellow 75–84%, Red &lt;75%</div>
+            <div class="chart-container chart-container--md"><canvas id="chWeekRuns2"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card__title">SKU Summary — Feb 02 – Feb 06, 2026 (40 Runs)</div>
+            <table id="tblWeeklySKU"></table>
+        </div>
+    </div>
+
+    <!-- ═══════════════ OPERATORS ═══════════════ -->
+    <div id="pane-operators" class="pane">
+        <div class="card">
+            <div class="card__title">Operator Efficiency (Min 5 Runs)</div>
+            <div class="chart-container chart-container--md"><canvas id="chOps"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card__title">Operator Detail</div>
+            <table id="tblOps"></table>
+        </div>
+    </div>
+
+    <!-- ═══════════════ INSIGHTS ═══════════════ -->
+    <div id="pane-insights" class="pane">
+        <div class="section-title">💡 Root Cause Analysis &amp; Success Patterns</div>
+        <div class="g2">
+            <div class="card" style="border-left:3px solid var(--accent-red);">
+                <div class="card__title" style="color:var(--accent-red);">🔍 Common Issues</div>
+                <div style="margin-top:12px; font-size:13px; line-height:2; color:var(--text-secondary);">
+                    <strong style="color:var(--text-primary)">Manning Levels:</strong> Insufficient staffing = 12–15% efficiency drop<br>
+                    <strong style="color:var(--text-primary)">Machine Setup:</strong> Extended changeover times (&gt;30 min) reduce daily output 8–10%<br>
+                    <strong style="color:var(--text-primary)">Material Delays:</strong> Late raw materials cause 45–60 min lost time<br>
+                    <strong style="color:var(--text-primary)">Unplanned Downtime:</strong> Peaks mid-week (Wed–Thu)<br>
+                    <strong style="color:var(--text-primary)">Training Gaps:</strong> New SKUs show 15–20% lower efficiency initially
+                </div>
+            </div>
+            <div class="card" style="border-left:3px solid var(--accent-green);">
+                <div class="card__title" style="color:var(--accent-green);">⭐ Success Patterns</div>
+                <div style="margin-top:12px; font-size:13px; line-height:2; color:var(--text-secondary);">
+                    <strong style="color:var(--text-primary)">Monday Strong:</strong> 3–5% above average efficiency<br>
+                    <strong style="color:var(--text-primary)">Top Operators:</strong> Maintain 88–92% across all SKUs<br>
+                    <strong style="color:var(--text-primary)">Standard SKUs:</strong> High-volume products hit 85%+ consistently<br>
+                    <strong style="color:var(--text-primary)">Optimal Manning:</strong> 3–4 operators per line = best balance<br>
+                    <strong style="color:var(--text-primary)">Morning Shifts:</strong> 6AM–2PM outperform by 4–7%
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border-left:3px solid var(--accent-yellow);">
+            <div class="card__title" style="color:var(--accent-yellow);">🎯 Action Items</div>
+            <div style="margin-top:12px; font-size:13px; line-height:2; color:var(--text-secondary);">
+                <strong style="color:var(--text-primary)">This Week:</strong> Review Wed–Thu manning to match Monday levels<br>
+                <strong style="color:var(--text-primary)">This Month:</strong> Cross-training program with top performers<br>
+                <strong style="color:var(--text-primary)">This Quarter:</strong> Standardize PP line changeover procedures<br>
+                <strong style="color:var(--text-primary)">This Year:</strong> Implement predictive maintenance system
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">⚠️ Top Downtime Root Causes</div>
+        <div class="callout callout--red">
+            <div class="callout__title">1. Material Shortages — #1 Issue</div>
+            <div class="callout__body">Frequency: Very High (20+ occurrences) · Actions: +20% min inventory, 2-day lookahead scheduling, daily material meetings, buffer for top 10 SKUs</div>
+        </div>
+        <div class="callout callout--red">
+            <div class="callout__title">2. Pump Failures</div>
+            <div class="callout__body">Frequency: High · Actions: Weekly PM, backup pump, operator training, track hours</div>
+        </div>
+        <div class="callout callout--red">
+            <div class="callout__title">3. Capper Problems</div>
+            <div class="callout__body">Frequency: High · Actions: Root cause analysis, stock parts, monthly calibration</div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <div class="card__title">📉 Highest Downtime SKUs</div>
+            <div class="chart-container chart-container--md"><canvas id="chDowntime"></canvas></div>
+        </div>
+
+        <!-- Root Cause Analysis for Top 3 Downtime SKUs -->
+        <div class="card" id="downtimeInsights">
+            <div class="card__title">🔍 Root Cause Analysis — Top 3 Downtime SKUs</div>
+            <div class="card__subtitle">Actionable insights based on downtime notes, line assignments, and operator patterns</div>
+            <div id="insightsContent" style="margin-top:16px;"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MANAGER VIEW ═══════════════ -->
+    <div id="pane-manager" class="pane">
+        <div class="section-title">📊 Plant Manager Dashboard</div>
+
+        <div class="exec-grid">
+            <div class="exec-card">
+                <div class="exec-card__val" id="mgr-total">—</div>
+                <div class="exec-card__lbl">Total Production Runs</div>
+            </div>
+            <div class="exec-card">
+                <div class="exec-card__val" id="mgr-eff">—</div>
+                <div class="exec-card__lbl">Overall Efficiency</div>
+            </div>
+            <div class="exec-card">
+                <div class="exec-card__val" id="mgr-goal">—</div>
+                <div class="exec-card__lbl">Runs ≥ 85% Avg Eff</div>
+            </div>
+            <div class="exec-card">
+                <div class="exec-card__val" id="mgr-lost">—</div>
+                <div class="exec-card__lbl">Total Lost Hours</div>
+            </div>
+        </div>
+
+        <div class="section-title">🎯 Strategic Priorities</div>
+        <div class="callout callout--green">
+            <div class="callout__title">1. Capitalize on Strengths</div>
+            <div class="callout__body"><strong>Top Lines:</strong> ELGIN I, B1, B4 consistently exceed targets — use as training models.<br><strong>Star Operators:</strong> Top 5 performers for mentoring and SOP documentation.</div>
+        </div>
+        <div class="callout callout--red">
+            <div class="callout__title">2. Address Performance Gaps</div>
+            <div class="callout__body"><strong>Lines Needing Attention:</strong> Focus maintenance on lines below 75%.<br><strong>Operator Development:</strong> Training for operators averaging below 75%.</div>
+        </div>
+        <div class="callout callout--yellow">
+            <div class="callout__title">3. Reduce Lost Time</div>
+            <div class="callout__body"><strong>Target:</strong> Reduce lost minutes by 15% through preventive maintenance.<br><strong>Quick Wins:</strong> Standardize changeovers to save 10–15 min per setup.</div>
+        </div>
+        <div class="callout callout--blue">
+            <div class="callout__title">4. Data-Driven Decisions</div>
+            <div class="callout__body"><strong>Weekly Reviews:</strong> Track trends by line, operator, and SKU.<br><strong>Quarterly Goal:</strong> Target 82% overall efficiency.</div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <div class="card__title">📉 Top 10 Downtime SKUs</div>
+            <div class="chart-container chart-container--md"><canvas id="chMgrDowntime"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ HISTORICAL ANALYSIS ═══════════════ -->
+    <div id="pane-historical" class="pane">
+        <div class="section-title">📈 Historical Performance Analysis</div>
+
+        <!-- Lookups -->
+        <div class="g2">
+            <div class="card">
+                <div class="card__title">🔍 SKU Performance Lookup</div>
+                <div class="card__subtitle">186 SKUs — select to view performance</div>
+                <select id="selSKU" class="filter-select" onchange="showSKU()">
+                    <option value="">— Select a SKU —</option>
+                </select>
+                <div id="detailSKU"></div>
+            </div>
+            <div class="card">
+                <div class="card__title">🔍 Line Performance Lookup</div>
+                <div class="card__subtitle">All production lines — select to view performance</div>
+                <select id="selLine" class="filter-select" onchange="showLine()">
+                    <option value="">— Select a Line —</option>
+                </select>
+                <div id="detailLine"></div>
+            </div>
+        </div>
+
+        <!-- Rankings -->
+        <div class="section-title" style="margin-top:8px;">🏆 SKU Performance Rankings (All Time, Min 5 Runs)</div>
+        <div class="g2">
+            <div class="card" style="border-left:3px solid var(--accent-green);">
+                <div class="card__title" style="color:var(--accent-green);">⭐ Top 15 Performers</div>
+                <div class="card__subtitle">Highest average efficiency</div>
+                <div id="listTop15" class="scroll-y"></div>
+            </div>
+            <div class="card" style="border-left:3px solid var(--accent-red);">
+                <div class="card__title" style="color:var(--accent-red);">📊 Bottom 15 — Improvement Needed</div>
+                <div class="card__subtitle">Lowest average efficiency</div>
+                <div id="listBot15" class="scroll-y"></div>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top:8px;">🏭 Line Analysis</div>
+        <div class="g2">
+            <div class="card" style="border-left:3px solid var(--accent-blue);">
+                <div class="card__title" style="color:var(--accent-blue);">🏆 Best Performing Lines</div>
+                <div id="listBestLines" class="scroll-y"></div>
+            </div>
+            <div class="card" style="border-left:3px solid var(--accent-yellow);">
+                <div class="card__title" style="color:var(--accent-yellow);">⚠️ Lines Needing Attention</div>
+                <div class="card__subtitle">Lines below 75% threshold</div>
+                <div id="listProbLines"></div>
+            </div>
+        </div>
+
+        <!-- Insights Summary -->
+        <div class="section-title" style="margin-top:8px;">💡 Historical Insights &amp; Patterns</div>
+        <div class="g2">
+            <div class="card" style="border-left:3px solid var(--accent-green);">
+                <div class="card__title" style="color:var(--accent-green);">✓ What's Working Well</div>
+                <div style="margin-top:10px; font-size:13px; line-height:2; color:var(--text-secondary);">
+                    <strong style="color:var(--text-primary)">High-Volume SKUs:</strong> Standard products maintain 85%+ consistently<br>
+                    <strong style="color:var(--text-primary)">Established Lines:</strong> ELGIN I, B1, B4 are reliability benchmarks<br>
+                    <strong style="color:var(--text-primary)">Process Maturity:</strong> Long-running SKUs show stable, predictable performance<br>
+                    <strong style="color:var(--text-primary)">Operator Experience:</strong> Familiarity with SKU correlates with better efficiency
+                </div>
+            </div>
+            <div class="card" style="border-left:3px solid var(--accent-red);">
+                <div class="card__title" style="color:var(--accent-red);">⚠️ Improvement Opportunities</div>
+                <div style="margin-top:10px; font-size:13px; line-height:2; color:var(--text-secondary);">
+                    <strong style="color:var(--text-primary)">New Product Intro:</strong> Recent SKUs show 15–20% lower initial efficiency<br>
+                    <strong style="color:var(--text-primary)">Low-Volume Items:</strong> Infrequent SKUs lack optimization and practice<br>
+                    <strong style="color:var(--text-primary)">Line-Specific Issues:</strong> Some lines consistently underperform across SKUs<br>
+                    <strong style="color:var(--text-primary)">Setup Time:</strong> Changeover inefficiencies impact overall productivity
+                </div>
+            </div>
+        </div>
+
+        <div class="callout callout--yellow" style="margin-top:12px;">
+            <div class="callout__title">🔑 Key Insight: Consistency Leaders</div>
+            <div class="callout__body">DAPBAB-01V1, TRUFRE-04, TRUFRE-06 — narrow speed ranges and consistent efficiency. Use as models for process standardization.</div>
+        </div>
+        <div class="callout callout--red">
+            <div class="callout__title">⚠️ Chronic Problem</div>
+            <div class="callout__body">DUKCAN-17 (35 runs, 65.4% avg) — never performed well. Consider discontinue or major process redesign.</div>
+        </div>
+        <div class="callout callout--green">
+            <div class="callout__title">💰 Revenue Drivers</div>
+            <div class="callout__body">DAPBAB-01V1 (25 runs, 91.1%, 472K units) and TRUFRE-04 (51 runs, 89.1%, 404K units) — prioritize capacity expansion.</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<script>
+
+// ━━━━━━━━ FIREBASE CONFIG ━━━━━━━━
+// ┌──────────────────────────────────────────────────────────┐
+// │  SETUP: Replace these values with your Firebase project  │
+// │  1. Go to https://console.firebase.google.com            │
+// │  2. Create a new project (or use existing)               │
+// │  3. Go to Project Settings → General → Your apps         │
+// │  4. Click "Add app" → Web (</>)                          │
+// │  5. Copy the config values below                         │
+// │  6. Go to Realtime Database → Create Database             │
+// │  7. Choose "Start in test mode" for now                  │
+// └──────────────────────────────────────────────────────────┘
+const firebaseConfig = {
+    apiKey: "AIzaSyC-Xtlv__mvx-AEk8Zu9otkEFWYOF_mhbg",
+    authDomain: "paket-production-dashboard-v1.firebaseapp.com",
+    databaseURL: "https://paket-production-dashboard-v1-default-rtdb.firebaseio.com",
+    projectId: "paket-production-dashboard-v1",
+    storageBucket: "paket-production-dashboard-v1.firebasestorage.app",
+    messagingSenderId: "869201529522",
+    appId: "1:869201529522:web:3e9735a188236410f0d7ab",
+    measurementId: "G-1CETQ69TZ8"
+};
+
+// Initialize Firebase
+let fbApp = null, fbDb = null, fbReady = false;
+try {
+    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        fbApp = firebase.initializeApp(firebaseConfig);
+        fbDb = firebase.database();
+        fbReady = true;
+        console.log('Firebase connected ✓');
+        document.addEventListener('DOMContentLoaded', () => {
+            const s = document.getElementById('fbStatus');
+            if (s) { s.textContent = '☁ CONNECTED'; s.style.background = 'rgba(52,211,153,0.15)'; s.style.color = '#34d399'; }
+        });
+    } else {
+        console.log('Firebase not configured — using embedded data (offline mode)');
+        document.addEventListener('DOMContentLoaded', () => {
+            const s = document.getElementById('fbStatus');
+            if (s) { s.textContent = 'OFFLINE'; s.style.background = 'rgba(251,191,36,0.15)'; s.style.color = '#fbbf24'; }
+        });
+    }
+} catch(err) {
+    console.warn('Firebase init failed:', err.message, '— using offline mode');
+}
+
+// Save data to Firebase
+function saveToFirebase(cleanedData) {
+    if (!fbReady || !fbDb) return Promise.resolve(false);
+    const payload = {
+        dashboardData: cleanedData,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: 'Admin',
+    };
+    return fbDb.ref('paket-dashboard/latest').set(payload)
+        .then(() => { console.log('Data saved to Firebase ✓'); return true; })
+        .catch(err => { console.error('Firebase save error:', err); return false; });
+}
+
+// Load data from Firebase
+function loadFromFirebase() {
+    if (!fbReady || !fbDb) return Promise.resolve(null);
+    return fbDb.ref('paket-dashboard/latest').once('value')
+        .then(snap => {
+            const val = snap.val();
+            if (val && val.dashboardData) {
+                console.log('Loaded data from Firebase (uploaded: ' + val.uploadedAt + ')');
+                return val;
+            }
+            return null;
+        })
+        .catch(err => { console.warn('Firebase load error:', err); return null; });
+}
+
+function attemptLogin() {
+    const u = document.getElementById('login-user').value;
+    const p = document.getElementById('login-pass').value;
+    let isAdmin = false;
+    if (u === 'Paket' && p === 'Paket2026!') {
+        isAdmin = false;
+    } else if (u === 'Admin' && p === 'Kevin2829!') {
+        isAdmin = true;
+    } else {
+        document.getElementById('login-error').textContent = 'Invalid credentials. Please try again.';
+        return;
+    }
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard-main').style.display = 'block';
+    if (isAdmin) {
+        document.getElementById('adminPanel').style.display = 'block';
+        window.__isAdmin = true;
+    }
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+        attemptLogin();
+    }
+});
+
+
+// ━━━━━━━━ ADMIN: DRAG & DROP ━━━━━━━━
+document.addEventListener('DOMContentLoaded', function() {
+    const zone = document.getElementById('uploadZone');
+    if (!zone) return;
+    zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', function() { zone.classList.remove('dragover'); });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault(); zone.classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        if (f) handleFileUpload(f);
+    });
+});
+
+// ━━━━━━━━ ADMIN: FILE UPLOAD & CLEANING PIPELINE ━━━━━━━━
+function handleFileUpload(file) {
+    if (!window.__isAdmin) return;
+    if (!file) return;
+    const prog = document.getElementById('uploadProgress');
+    prog.className = 'upload-progress processing';
+    prog.innerHTML = '⏳ Reading Excel file...';
+    prog.style.display = 'block';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            prog.innerHTML = '⏳ Parsing workbook...';
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, {type: 'array', cellDates: true});
+            const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('enter data')) || wb.SheetNames[0];
+            const ws = wb.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(ws, {defval: null});
+
+            prog.innerHTML = '⏳ Cleaning & standardizing ' + rows.length + ' rows...';
+            setTimeout(function() {
+                try {
+                    const cleaned = cleanAndBuild(rows);
+                    applyNewData(cleaned);
+
+                    // Save to Firebase for persistence
+                    if (fbReady) {
+                        prog.className = 'upload-progress processing';
+                        prog.innerHTML = '⏳ Saving to cloud database...';
+                        saveToFirebase(cleaned).then(ok => {
+                            if (ok) {
+                                prog.className = 'upload-progress success';
+                                prog.innerHTML = '✅ Dashboard updated & saved! ' + cleaned.meta.totalRuns + ' runs · ' + cleaned.meta.totalSKUs + ' SKUs · ' + cleaned.meta.totalLines + ' lines — Data persisted to Firebase.';
+                            } else {
+                                prog.className = 'upload-progress success';
+                                prog.innerHTML = '✅ Dashboard updated (local only) — ' + cleaned.meta.totalRuns + ' runs · ' + cleaned.meta.totalSKUs + ' SKUs · ' + cleaned.meta.totalLines + ' lines. ⚠ Firebase save failed.';
+                            }
+                        });
+                    } else {
+                        prog.className = 'upload-progress success';
+                        prog.innerHTML = '✅ Dashboard updated! ' + cleaned.meta.totalRuns + ' runs · ' + cleaned.meta.totalSKUs + ' SKUs · ' + cleaned.meta.totalLines + ' lines — Data cleaned & standardized. ⚠ Firebase not configured — data will not persist.';
+                    }
+                } catch(err) {
+                    prog.className = 'upload-progress error';
+                    prog.innerHTML = '❌ Error processing data: ' + err.message;
+                    console.error(err);
+                }
+            }, 50);
+        } catch(err) {
+            prog.className = 'upload-progress error';
+            prog.innerHTML = '❌ Error reading file: ' + err.message;
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ━━━━━━━━ DATA CLEANING PIPELINE (mirrors Python) ━━━━━━━━
+function cleanAndBuild(rows) {
+    // ── Date Fixes ──
+    const dateFixes = {
+        '4/30/205':'4/30/2025','4/3032025':'4/30/2025','5//7/2025':'5/7/2025',
+        '5/20//2025':'5/20/2025','710/2025':'7/10/2025','714/2025':'7/14/2025',
+        '7/152025':'7/15/2025','7/15/205':'7/15/2025','12/222025':'12/22/2025',
+        ' 1/7/2026':'1/7/2026','1/92026':'1/9/2026','1/29//2026':'1/29/2026',
+        '2/4/2026/':'2/4/2026','2/6/.2026':'2/6/2026',
+    };
+    function parseDate(val) {
+        if (!val) return null;
+        if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+        let s = String(val).trim();
+        if (dateFixes[s]) s = dateFixes[s];
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    // ── Line Mapping ──
+    const lineMap = {
+        'PI':'PP 1','PP I':'PP 1','PP1':'PP 1','PPK#1':'PP 1','PPK1':'PP 1','P1':'PP 1',
+        'P2':'PP 2','PP II':'PP 2','PPAK-2':'PP 2',
+        'PP#3':'PP 3','PP3':'PP 3','PP III':'PP 3','PD3':'PP 3','PPAK-3':'PP 3','P3':'PP 3',
+        'ELGIN':'ELGIN I','ELGIN 1':'ELGIN I','ELGIN1':'ELGIN I','ELGIN I ':'ELGIN I',
+        'ELGIN i':'ELGIN I','ELIGIN I':'ELGIN I',
+        'ELGIN 2':'ELGIN II','ELGIN II ':'ELGIN II','ELGIN II(SINGLE SHOT)':'ELGIN II',
+        'KALAX I':'KALIX I','KALIX 1':'KALIX I','KALIX1':'KALIX I','kALIX I':'KALIX I',
+        'KALIXII':'KALIX II',
+        'BTL':'BTL I','BOTTLELINE':'BTL I','BOTTLE LINE II':'BTL II','BTL 2':'BTL II',
+        'B 6':'B6','B1 ':'B1','B2 ':'B2','REB ':'REB','PSG ':'PSG','WHITEBROWN':'WHITE BROWN',
+        'TRUFRE-01':'TRUFRE-01','SECONDARY':'SECONDARY',
+    };
+
+    // ── SKU Mapping ──
+    const skuMap = {
+        'BOOGIE -01':'BOOGIE-01','BOOGIE01':'BOOGIE-01','BOGGIE-01':'BOOGIE-01',
+        'BOOGIE -02':'BOOGIE-02','BOOGIE 02':'BOOGIE-02','BOGGIE-02':'BOOGIE-02',
+        'BOOGIE -03':'BOOGIE-03','BOOGIE 3':'BOOGIE-03',
+        'DAPBAB 01V1':'DAPBAB-01V1','DAPBAB-01V1':'DAPBAB-01V1',
+        'DAPBAB 04V2':'DAPBAB-04V2','DAPBAB-04V2':'DAPBAB-04V2',
+        'DAPBAB 18':'DAPBAB-18','DAPBAB-09V1':'DAPBAB-09V1',
+        'DAPBAB-04IPV2':'DAPBAB-04IPV2','DAPBAB-20 ':'DAPBAB-20',
+        'DAPBAN-04V2':'DAPBAB-04V2','DAPBAP-04V2':'DAPBAB-04V2','DAPBAN-05':'DAPBAB-05',
+        'DUKCAN -11':'DUKCAN-11','DUKCAN 11':'DUKCAN-11','DUCKAN-11':'DUKCAN-11',
+        'DUKCAN 01V1':'DUKCAN-01V1','DUKCAN 02V1':'DUKCAN-02V1',
+        'DUKCAN-02V1':'DUKCAN-02V1','DUKCAN-02V2':'DUKCAN-02V2',
+        'DUKCAN 08V1':'DUKCAN-08V1','DUKCAN-08V1':'DUKCAN-08V1',
+        'DUKCAN 17':'DUKCAN-17','DUKACN-17':'DUKCAN-17',
+        'DUKCAN 18':'DUKCAN-18','DUKCAN 20':'DUKCAN-20',
+        'DUCKAN-04':'DUKCAN-04','DUKAN-04':'DUKCAN-04','DUCKAN-05':'DUKCAN-05',
+        'DUKCAN-07V1':'DUKCAN-07V1','DUKCAN-10V1':'DUKCAN-10V1',
+        'DUKCAN-04V1':'DUKCAN-04V1','DUKCAN-05V1':'DUKCAN-05V1','DUKCAN-06V1':'DUKCAN-06V1',
+        'TRUFRE--01':'TRUFRE-01','TRUFE-01':'TRUFRE-01','TRUFRE01':'TRUFRE-01',
+        'TRUFE-04':'TRUFRE-04','TRUFRE0-05':'TRUFRE-05','TRUFRE 05':'TRUFRE-05',
+        'TRUFRE -06':'TRUFRE-06','TRUFRE 06':'TRUFRE-06','TREUFRE-09':'TRUFRE-09',
+        'TRUFRE 11':'TRUFRE-11','TRUFRE- 11':'TRUFRE-11',
+        'TRUFRE-01V1':'TRUFRE-01V1','TRUFRE 18':'TRUFRE-18',
+        'TRIPRO 01':'TRIPRO-01V1','TRIPRO01V1':'TRIPRO-01V1',
+        'RAWSUG -02':'RAWSUG-02','RAWSUG 02':'RAWSUG-02','RAWSUG- 02':'RAWSUG-02',
+        'RAWSUNG 02':'RAWSUG-02','RAWSUG 01':'RAWSUG-01',
+        'OKECOM 05':'OKECOM-05','OKECOM 11':'OKECOM-11','0KECOM-06':'OKECOM-06',
+        'FUCHSL 11':'FUCHSL-11','FUCSH-11':'FUCHSL-11','ENXZSOL-02':'ENZSOL-02',
+        'JRWATK 11V1':'JRWATK-11V1','JRWATK-21V1':'JRWATK-21V1',
+        'ODEBEA -02':'ODEBEA-02','ODEBEA-02 (TRIAL)':'ODEBEA-02',
+        'ODEDA-02':'ODEBEA-02','ODEDEA-02':'ODEBEA-02',
+        'PACTEC-02FLA':'PACTEC-02-FLA','PACTEC-03 DIV':'PACTEC-03-DIV',
+        'PACTEC-03FLAT':'PACTEC-03-FLAT','COSTEC-46V2':'COSTEC-46V2','COSTEC-31B':'COSTEC-31B',
+    };
+    const opMap = {
+        'ANDRES ':'ANDY','ANDRES':'ANDY','CHUYA ':'CHUYA',
+        'ROCIO  M':'ROCIO M','ROCIOM':'ROCIO M','ROCO M':'ROCIO M','LINDA-NELLY':'LINDA',
+    };
+
+    function cleanSKU(val) {
+        if (!val) return null;
+        let s = String(val).trim().toUpperCase().replace(/\s+/g,' ');
+        if (skuMap[s]) return skuMap[s];
+        const m = s.match(/^([A-Z]+)\s+(\d.*)$/);
+        if (m) {
+            const fixed = m[1] + '-' + m[2];
+            return skuMap[fixed] || fixed;
+        }
+        return s.replace(/([A-Z]-\d+)v/g, '$1V');
+    }
+    function cleanLine(val) {
+        if (!val) return null;
+        const s = String(val).trim();
+        return lineMap[s] || s;
+    }
+    function cleanOp(val) {
+        if (!val) return null;
+        let s = String(val).trim().toUpperCase().replace(/\s+/g,' ');
+        return opMap[s] || s;
+    }
+    function getShift(row) {
+        const spvr = String(row['SPVR']||'').trim().toUpperCase();
+        if (spvr === 'SL') return 1;
+        if (spvr === 'TS') return 2;
+        const sh = row['SHIFT'];
+        if (sh && !isNaN(sh)) return parseInt(sh);
+        return 0;
+    }
+    function num(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+    function fmt(n) { return n != null ? n.toLocaleString() : '0'; }
+
+    // ── CLEAN ROWS ──
+    let clean = [];
+    rows.forEach(row => {
+        const date = parseDate(row['DATE']);
+        if (!date) return;
+        if (date < new Date('2025-01-01') || date > new Date('2027-01-01')) return;
+
+        const eff = num(row['EFFICIENCY']);
+        if (eff === null) return;
+        if (eff < 0 || eff > 1.5) return; // 0-150%
+
+        const item = cleanSKU(row['ITEM']);
+        const line = cleanLine(row['LINE']);
+        if (!item || !line) return;
+        if (line === 'TRUFRE-01') return; // SKU not a line
+        if (item === 'WATINC-01') return; // known bad
+
+        clean.push({
+            date, item, line,
+            eff,
+            output: num(row['ACTUAL OUTPUT']) || 0,
+            lost: num(row['LOST MINUTES']) || 0,
+            manning: num(row['ACTUAL MANNING']) || 0,
+            speed: num(row['ACTUAL SPEED']),
+            operator: cleanOp(row['OPERATOR']),
+            shift: getShift(row),
+            spvr: String(row['SPVR']||'').trim().toUpperCase(),
+            downtime: String(row['DOWNTIME']||''),
+        });
+    });
+
+    // Sort by date
+    clean.sort((a,b) => a.date - b.date);
+    const EFF = 100;
+
+    // ── GROUP HELPERS ──
+    function groupBy(arr, keyFn) {
+        const m = {};
+        arr.forEach(r => {
+            const k = keyFn(r);
+            if (!m[k]) m[k] = [];
+            m[k].push(r);
+        });
+        return m;
+    }
+    function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+    function round1(v) { return Math.round(v*10)/10; }
+
+    // ── SKU DATA ──
+    const byItem = groupBy(clean, r => r.item);
+    const skus = {};
+    for (const [item, g] of Object.entries(byItem)) {
+        const speeds = g.map(r=>r.speed).filter(v=>v!==null);
+        const last5Out = g.slice(-5).map(r=>r.output);
+        skus[item] = {
+            runs: g.length,
+            avg_eff: round1(avg(g.map(r=>r.eff)) * EFF),
+            min_eff: round1(Math.min(...g.map(r=>r.eff)) * EFF),
+            max_eff: round1(Math.max(...g.map(r=>r.eff)) * EFF),
+            total_output: Math.round(g.reduce((s,r)=>s+r.output,0)),
+            avg_output: Math.round(avg(g.map(r=>r.output))),
+            max_output: Math.round(Math.max(...g.map(r=>r.output))),
+            avg_output_last5: Math.round(avg(last5Out)),
+            avg_staffing: round1(avg(g.map(r=>r.manning))),
+            total_lost_mins: round1(g.reduce((s,r)=>s+r.lost,0)),
+            avg_speed: speeds.length ? round1(avg(speeds)) : 0,
+            top_speed: speeds.length ? round1(Math.max(...speeds)) : 0,
+        };
+    }
+
+    // ── LINE DATA ──
+    const byLine = groupBy(clean, r => r.line);
+    const lines = {};
+    for (const [line, g] of Object.entries(byLine)) {
+        const speeds = g.map(r=>r.speed).filter(v=>v!==null);
+        lines[line] = {
+            runs: g.length,
+            avg_eff: round1(avg(g.map(r=>r.eff)) * EFF),
+            total_output: Math.round(g.reduce((s,r)=>s+r.output,0)),
+            total_lost_mins: round1(g.reduce((s,r)=>s+r.lost,0)),
+            speed_min: speeds.length ? round1(Math.min(...speeds)) : 0,
+            speed_max: speeds.length ? round1(Math.max(...speeds)) : 0,
+            speed_avg: speeds.length ? round1(avg(speeds)) : 0,
+        };
+    }
+
+    // ── OPERATORS ──
+    const byOp = groupBy(clean.filter(r=>r.operator&&r.operator!=='NAN'), r => r.operator);
+    const operators = {};
+    for (const [op, g] of Object.entries(byOp)) {
+        operators[op] = { runs: g.length, avg_eff: round1(avg(g.map(r=>r.eff)) * EFF) };
+    }
+
+    // ── MONTHLY ──
+    const byMonth = groupBy(clean, r => {
+        const y = r.date.getFullYear();
+        const m = String(r.date.getMonth()+1).padStart(2,'0');
+        return y + '-' + m;
+    });
+    const monthlyData = {};
+    for (const [month, g] of Object.entries(byMonth)) {
+        monthlyData[month] = {
+            avg_eff: round1(avg(g.map(r=>r.eff)) * EFF),
+            total_lost_mins: round1(g.reduce((s,r)=>s+r.lost,0)),
+            runs: g.length,
+        };
+    }
+
+    // ── WEEKLY (latest week) ──
+    const maxDate = clean[clean.length-1].date;
+    const dow = maxDate.getDay(); // 0=Sun
+    const mondayOffset = dow === 0 ? 6 : dow - 1;
+    const wkMon = new Date(maxDate); wkMon.setDate(maxDate.getDate() - mondayOffset); wkMon.setHours(0,0,0,0);
+    const wkFri = new Date(wkMon); wkFri.setDate(wkMon.getDate() + 4); wkFri.setHours(23,59,59,999);
+
+    const weekRows = clean.filter(r => r.date >= wkMon && r.date <= wkFri);
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const weeklyData = {};
+    weekRows.forEach(r => {
+        const day = dayNames[r.date.getDay()];
+        const ds = (r.date.getMonth()+1).toString().padStart(2,'0') + '/' + r.date.getDate().toString().padStart(2,'0') + '/' + r.date.getFullYear();
+        if (!weeklyData[day]) weeklyData[day] = {day, date:ds, efficiency:0, units:0, labor:0, runs:[], _e:[], _l:[]};
+        const e = round1(r.eff * EFF);
+        const shiftLabel = (r.spvr==='SL'||r.shift===1) ? '1st (SL)' : (r.spvr==='TS'||r.shift===2) ? '2nd (TS)' : 'Unknown';
+        weeklyData[day].runs.push({sku:r.item, eff:e, units:r.output, shift:r.shift, shiftLabel, line:r.line});
+        weeklyData[day]._e.push(e);
+        weeklyData[day].units += r.output;
+        weeklyData[day]._l.push(r.manning);
+    });
+    for (const k in weeklyData) {
+        weeklyData[k].efficiency = weeklyData[k]._e.length ? round1(avg(weeklyData[k]._e)) : 0;
+        weeklyData[k].labor = Math.round(weeklyData[k]._l.reduce((a,b)=>a+b,0));
+        delete weeklyData[k]._e; delete weeklyData[k]._l;
+    }
+
+    // Weekly SKU summary
+    const weeklySkus = {};
+    weekRows.forEach(r => {
+        if (!weeklySkus[r.item]) weeklySkus[r.item] = {runs:0, avg_eff:0, total_units:0, _e:[]};
+        weeklySkus[r.item].runs++;
+        weeklySkus[r.item].total_units += r.output;
+        weeklySkus[r.item]._e.push(round1(r.eff * EFF));
+    });
+    for (const s in weeklySkus) {
+        weeklySkus[s].avg_eff = round1(avg(weeklySkus[s]._e));
+        delete weeklySkus[s]._e;
+    }
+
+    // ── TOP 3 DOWNTIME INSIGHTS ──
+    const skuLost = Object.entries(skus).sort((a,b) => b[1].total_lost_mins - a[1].total_lost_mins).slice(0,3);
+    const actionMap = {
+        'chain timing/sync':'chain timing/sync issues',
+        'film|photo eye|seal':'film/photo eye/seal problems',
+        'material|ran out|waiting':'material supply delays',
+        'label|wrinkle':'labeling/label quality issues',
+        'capper|cap':'capper malfunction',
+        'printer|coder':'printer/coder issues',
+        'weight':'weight/fill accuracy issues',
+        'conveyor':'conveyor jams/stoppages',
+    };
+    const top3Insights = skuLost.map(([sku, d]) => {
+        const g = clean.filter(r => r.item === sku);
+        const notes = g.map(r=>r.downtime).filter(n=>n&&n.length>5).join(' ').toLowerCase();
+        const issues = [];
+        for (const [pattern, label] of Object.entries(actionMap)) {
+            if (new RegExp(pattern).test(notes)) issues.push(label);
+        }
+        if (!issues.length) issues.push('multiple minor mechanical issues');
+        const lineCounts = {};
+        g.forEach(r => { lineCounts[r.line] = (lineCounts[r.line]||0)+1; });
+        const topLine = Object.entries(lineCounts).sort((a,b)=>b[1]-a[1])[0];
+        return {
+            sku, lost: d.total_lost_mins, runs: d.runs, avg_eff: d.avg_eff,
+            avg_lost_per_run: round1(d.total_lost_mins / d.runs),
+            primary_line: topLine ? topLine[0] : 'N/A',
+            top_operators: [], issues, sample_notes: [],
+        };
+    });
+
+    // ── MONTHLY TREND ──
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const currentMonth = sortedMonths[sortedMonths.length - 1];
+    const currentMonthLost = monthlyData[currentMonth].total_lost_mins;
+    const priorMonths = sortedMonths.slice(-6, -1);
+    const priorAvgLost = priorMonths.length ? Math.round(avg(priorMonths.map(m => monthlyData[m].total_lost_mins))) : 0;
+
+    const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const wkMonStr = moNames[wkMon.getMonth()] + ' ' + String(wkMon.getDate()).padStart(2,'0');
+    const wkFriStr = moNames[wkFri.getMonth()] + ' ' + String(wkFri.getDate()).padStart(2,'0') + ', ' + wkFri.getFullYear();
+    const weekLabel = wkMonStr + ' \u2013 ' + wkFriStr;
+
+    const overallEff = round1(avg(clean.map(r=>r.eff)) * EFF);
+    const weekEff = weekRows.length ? round1(avg(weekRows.map(r=>r.eff)) * EFF) : 0;
+
+    // Find date range
+    const minDate = clean[0].date;
+    const moMin = moNames[minDate.getMonth()] + ' ' + minDate.getFullYear();
+    const moMax = moNames[maxDate.getMonth()] + ' ' + maxDate.getFullYear();
+
+    return {
+        skus, lines, operators,
+        weeklyData, weeklySkus, monthlyData,
+        top3Insights,
+        meta: {
+            dateRange: moMin + ' \u2013 ' + moMax,
+            totalRuns: clean.length,
+            totalSKUs: Object.keys(skus).length,
+            totalLines: Object.keys(lines).length,
+            weekLabel, weekRuns: weekRows.length,
+            overallEff, weekEff,
+            currentMonth, currentMonthLost, priorAvgLost,
+        }
+    };
+}
+
+// ━━━━━━━━ APPLY NEW DATA TO DASHBOARD ━━━━━━━━
+function applyNewData(newData) {
+    // Replace global data
+    for (const key in newData) { allData[key] = newData[key]; }
+
+    // Update header
+    const m = newData.meta;
+    const subtitle = document.querySelector('.subtitle');
+    if (subtitle) subtitle.innerHTML = m.dateRange + ' &nbsp;·&nbsp; ' + m.totalRuns.toLocaleString() + ' Runs &nbsp;·&nbsp; ' + m.totalSKUs + ' SKUs &nbsp;·&nbsp; ' + m.totalLines + ' Lines (cleaned)';
+
+    // Update KPIs
+    document.querySelector('.kpi--blue .kpi__value').textContent = m.overallEff + '%';
+    document.querySelector('.kpi--green .kpi__value').textContent = m.weekEff + '%';
+    document.querySelector('.kpi--green .kpi__trend').textContent = m.weekRuns + ' runs · ' + m.weekLabel;
+    document.querySelector('.kpi--purple .kpi__value').textContent = m.totalSKUs;
+
+    // Update timestamp
+    const now = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const hr = now.getHours(); const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = hr % 12 || 12;
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const tag = document.getElementById('updatedTag');
+    if (tag) tag.textContent = 'Updated ' + months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear() + ' ' + h12 + ':' + mm + ' ' + ampm;
+
+    // Rebuild all charts and tables
+    // Destroy existing charts
+    Object.values(Chart.instances || {}).forEach(c => { try { c.destroy(); } catch(e){} });
+
+    // Recalculate derived data
+    const allMonths = Object.keys(allData.monthlyData).sort();
+    const months2 = allMonths.slice(-6);
+    const mLabels2 = months2.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + ' ' + y.slice(2); });
+
+    // Re-run all build functions
+    try {
+        buildCharts();
+        buildTables();
+        buildDropdowns();
+        buildRankings();
+        buildKPIs();
+        if (typeof buildDowntimeInsights === 'function') buildDowntimeInsights();
+        console.log('Dashboard refreshed with new data ✓');
+    } catch(err) {
+        console.error('Rebuild error:', err);
+    }
+}
+
+
+// ━━━━━━━━ DATA ━━━━━━━━
+const allData = {
+  "skus": {
+    "ALLINT-01": {
+      "runs": 6,
+      "avg_eff": 93.1,
+      "min_eff": 65.5,
+      "max_eff": 113.7,
+      "total_output": 143828,
+      "avg_output": 23971.0,
+      "max_output": 37200,
+      "avg_output_last5": 26606.0,
+      "avg_staffing": 2.7,
+      "total_lost_mins": 74.7,
+      "avg_speed": 100.0,
+      "top_speed": 100.0
+    },
+    "ARMPUM-02": {
+      "runs": 2,
+      "avg_eff": 39.9,
+      "min_eff": 24.3,
+      "max_eff": 55.6,
+      "total_output": 9750,
+      "avg_output": 4875.0,
+      "max_output": 5100,
+      "avg_output_last5": 4875.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 380.2,
+      "avg_speed": 47.5,
+      "top_speed": 50.0
+    },
+    "ATLPUT-02": {
+      "runs": 5,
+      "avg_eff": 84.0,
+      "min_eff": 78.7,
+      "max_eff": 93.1,
+      "total_output": 54319,
+      "avg_output": 10864.0,
+      "max_output": 15024,
+      "avg_output_last5": 10864.0,
+      "avg_staffing": 2.6,
+      "total_lost_mins": 213.2,
+      "avg_speed": 46.0,
+      "top_speed": 46.0
+    },
+    "AUNFAN-02V2": {
+      "runs": 7,
+      "avg_eff": 78.4,
+      "min_eff": 37.9,
+      "max_eff": 98.2,
+      "total_output": 31790,
+      "avg_output": 4541.0,
+      "max_output": 6270,
+      "avg_output_last5": 4675.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 490.2,
+      "avg_speed": 18.4,
+      "top_speed": 19.0
+    },
+    "AUNFAN-1V1": {
+      "runs": 5,
+      "avg_eff": 86.0,
+      "min_eff": 78.6,
+      "max_eff": 93.0,
+      "total_output": 27132,
+      "avg_output": 5426.0,
+      "max_output": 6462,
+      "avg_output_last5": 5426.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 229.5,
+      "avg_speed": 19.0,
+      "top_speed": 19.0
+    },
+    "BOOGIE-01": {
+      "runs": 53,
+      "avg_eff": 80.2,
+      "min_eff": 24.0,
+      "max_eff": 106.6,
+      "total_output": 366866,
+      "avg_output": 6922.0,
+      "max_output": 12372,
+      "avg_output_last5": 5830.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 2768.3,
+      "avg_speed": 29.9,
+      "top_speed": 36.0
+    },
+    "BOOGIE-02": {
+      "runs": 46,
+      "avg_eff": 86.7,
+      "min_eff": 32.1,
+      "max_eff": 121.4,
+      "total_output": 469960,
+      "avg_output": 10217.0,
+      "max_output": 16920,
+      "avg_output_last5": 9072.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 1390.3,
+      "avg_speed": 38.5,
+      "top_speed": 52.0
+    },
+    "BOOGIE-03": {
+      "runs": 14,
+      "avg_eff": 76.5,
+      "min_eff": 39.2,
+      "max_eff": 103.7,
+      "total_output": 53124,
+      "avg_output": 3795.0,
+      "max_output": 7524,
+      "avg_output_last5": 3906.0,
+      "avg_staffing": 5.7,
+      "total_lost_mins": 457.2,
+      "avg_speed": 22.3,
+      "top_speed": 24.0
+    },
+    "BRULIN-01": {
+      "runs": 19,
+      "avg_eff": 84.7,
+      "min_eff": 57.9,
+      "max_eff": 96.4,
+      "total_output": 140149,
+      "avg_output": 7376.0,
+      "max_output": 8448,
+      "avg_output_last5": 6400.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 1054.0,
+      "avg_speed": 24.0,
+      "top_speed": 24.0
+    },
+    "CHIGEL-04": {
+      "runs": 2,
+      "avg_eff": 83.6,
+      "min_eff": 67.0,
+      "max_eff": 100.3,
+      "total_output": 26550,
+      "avg_output": 13275.0,
+      "max_output": 14000,
+      "avg_output_last5": 13275.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 125.4,
+      "avg_speed": 49.0,
+      "top_speed": 49.0
+    },
+    "CHIGEL-05": {
+      "runs": 4,
+      "avg_eff": 81.5,
+      "min_eff": 63.3,
+      "max_eff": 96.7,
+      "total_output": 52470,
+      "avg_output": 13118.0,
+      "max_output": 16000,
+      "avg_output_last5": 13118.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 219.2,
+      "avg_speed": 54.0,
+      "top_speed": 59.0
+    },
+    "CHIGEL-07": {
+      "runs": 3,
+      "avg_eff": 98.6,
+      "min_eff": 80.8,
+      "max_eff": 108.8,
+      "total_output": 54160,
+      "avg_output": 18053.0,
+      "max_output": 24000,
+      "avg_output_last5": 18053.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 0.0,
+      "avg_speed": 59.0,
+      "top_speed": 59.0
+    },
+    "COSTEC-09B": {
+      "runs": 1,
+      "avg_eff": 80.0,
+      "min_eff": 80.0,
+      "max_eff": 80.0,
+      "total_output": 5100,
+      "avg_output": 5100.0,
+      "max_output": 5100,
+      "avg_output_last5": 5100.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 25.5,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "COSTEC-27": {
+      "runs": 1,
+      "avg_eff": 79.6,
+      "min_eff": 79.6,
+      "max_eff": 79.6,
+      "total_output": 8120,
+      "avg_output": 8120.0,
+      "max_output": 8120,
+      "avg_output_last5": 8120.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 41.6,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "COSTEC-30V2": {
+      "runs": 2,
+      "avg_eff": 90.4,
+      "min_eff": 89.3,
+      "max_eff": 91.5,
+      "total_output": 9190,
+      "avg_output": 4595.0,
+      "max_output": 5690,
+      "avg_output_last5": 4595.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 20.2,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "COSTEC-31": {
+      "runs": 1,
+      "avg_eff": 71.9,
+      "min_eff": 71.9,
+      "max_eff": 71.9,
+      "total_output": 5500,
+      "avg_output": 5500.0,
+      "max_output": 5500,
+      "avg_output_last5": 5500.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 43.0,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "COSTEC-31B": {
+      "runs": 1,
+      "avg_eff": 83.3,
+      "min_eff": 83.3,
+      "max_eff": 83.3,
+      "total_output": 4250,
+      "avg_output": 4250.0,
+      "max_output": 4250,
+      "avg_output_last5": 4250.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 17.0,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "COSTEC-46V2": {
+      "runs": 1,
+      "avg_eff": 81.4,
+      "min_eff": 81.4,
+      "max_eff": 81.4,
+      "total_output": 8300,
+      "avg_output": 8300.0,
+      "max_output": 8300,
+      "avg_output_last5": 8300.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 38.0,
+      "avg_speed": 50.0,
+      "top_speed": 50.0
+    },
+    "DAPBAB-01V1": {
+      "runs": 26,
+      "avg_eff": 91.8,
+      "min_eff": 40.4,
+      "max_eff": 146.3,
+      "total_output": 500120,
+      "avg_output": 19235.0,
+      "max_output": 28350,
+      "avg_output_last5": 21490.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 686.5,
+      "avg_speed": 68.0,
+      "top_speed": 68.0
+    },
+    "DAPBAB-04IPV2": {
+      "runs": 18,
+      "avg_eff": 77.9,
+      "min_eff": 56.5,
+      "max_eff": 104.0,
+      "total_output": 55781,
+      "avg_output": 3099.0,
+      "max_output": 5360,
+      "avg_output_last5": 2944.0,
+      "avg_staffing": 5.8,
+      "total_lost_mins": 1134.3,
+      "avg_speed": 14.1,
+      "top_speed": 18.0
+    },
+    "DAPBAB-04V2": {
+      "runs": 113,
+      "avg_eff": 83.3,
+      "min_eff": 39.6,
+      "max_eff": 135.9,
+      "total_output": 357745,
+      "avg_output": 3166.0,
+      "max_output": 6032,
+      "avg_output_last5": 2258.0,
+      "avg_staffing": 3.9,
+      "total_lost_mins": 5403.1,
+      "avg_speed": 13.6,
+      "top_speed": 22.0
+    },
+    "DAPBAB-05": {
+      "runs": 11,
+      "avg_eff": 70.8,
+      "min_eff": 21.4,
+      "max_eff": 93.1,
+      "total_output": 37234,
+      "avg_output": 3385.0,
+      "max_output": 5362,
+      "avg_output_last5": 3058.0,
+      "avg_staffing": 6.1,
+      "total_lost_mins": 973.9,
+      "avg_speed": 16.5,
+      "top_speed": 18.0
+    },
+    "DAPBAB-09V1": {
+      "runs": 24,
+      "avg_eff": 78.2,
+      "min_eff": 53.2,
+      "max_eff": 98.9,
+      "total_output": 192896,
+      "avg_output": 8037.0,
+      "max_output": 11312,
+      "avg_output_last5": 8298.0,
+      "avg_staffing": 7.3,
+      "total_lost_mins": 1552.8,
+      "avg_speed": 33.3,
+      "top_speed": 42.0
+    },
+    "DAPBAB-0V2": {
+      "runs": 4,
+      "avg_eff": 76.3,
+      "min_eff": 67.2,
+      "max_eff": 83.8,
+      "total_output": 10920,
+      "avg_output": 2730.0,
+      "max_output": 4984,
+      "avg_output_last5": 2730.0,
+      "avg_staffing": 3.8,
+      "total_lost_mins": 267.6,
+      "avg_speed": 13.0,
+      "top_speed": 18.0
+    },
+    "DAPBAB-11V1": {
+      "runs": 7,
+      "avg_eff": 77.6,
+      "min_eff": 59.9,
+      "max_eff": 98.0,
+      "total_output": 41226,
+      "avg_output": 5889.0,
+      "max_output": 9744,
+      "avg_output_last5": 6268.0,
+      "avg_staffing": 7.3,
+      "total_lost_mins": 383.0,
+      "avg_speed": 28.3,
+      "top_speed": 36.0
+    },
+    "DAPBAB-18": {
+      "runs": 14,
+      "avg_eff": 70.7,
+      "min_eff": 30.1,
+      "max_eff": 95.9,
+      "total_output": 52066,
+      "avg_output": 3719.0,
+      "max_output": 9200,
+      "avg_output_last5": 3199.0,
+      "avg_staffing": 7.6,
+      "total_lost_mins": 865.3,
+      "avg_speed": 25.6,
+      "top_speed": 36.0
+    },
+    "DAPBAB-20": {
+      "runs": 8,
+      "avg_eff": 67.7,
+      "min_eff": 35.3,
+      "max_eff": 88.0,
+      "total_output": 21156,
+      "avg_output": 2644.0,
+      "max_output": 5288,
+      "avg_output_last5": 2240.0,
+      "avg_staffing": 6.9,
+      "total_lost_mins": 518.7,
+      "avg_speed": 19.2,
+      "top_speed": 26.0
+    },
+    "DAPBAB-21": {
+      "runs": 5,
+      "avg_eff": 63.3,
+      "min_eff": 44.3,
+      "max_eff": 77.6,
+      "total_output": 19046,
+      "avg_output": 3809.0,
+      "max_output": 6672,
+      "avg_output_last5": 3809.0,
+      "avg_staffing": 6.4,
+      "total_lost_mins": 426.3,
+      "avg_speed": 24.4,
+      "top_speed": 26.0
+    },
+    "DAPBAB-25": {
+      "runs": 8,
+      "avg_eff": 84.2,
+      "min_eff": 57.1,
+      "max_eff": 126.1,
+      "total_output": 17266,
+      "avg_output": 2158.0,
+      "max_output": 6320,
+      "avg_output_last5": 2008.0,
+      "avg_staffing": 4.2,
+      "total_lost_mins": 123.6,
+      "avg_speed": 13.6,
+      "top_speed": 20.0
+    },
+    "DAPBAB-26": {
+      "runs": 22,
+      "avg_eff": 72.1,
+      "min_eff": 48.4,
+      "max_eff": 99.8,
+      "total_output": 50300,
+      "avg_output": 2286.0,
+      "max_output": 4956,
+      "avg_output_last5": 1035.0,
+      "avg_staffing": 4.3,
+      "total_lost_mins": 1349.2,
+      "avg_speed": 14.0,
+      "top_speed": 28.0
+    },
+    "DUKCAN-01V1": {
+      "runs": 20,
+      "avg_eff": 91.8,
+      "min_eff": 53.8,
+      "max_eff": 102.7,
+      "total_output": 173570,
+      "avg_output": 8678.0,
+      "max_output": 15876,
+      "avg_output_last5": 10577.0,
+      "avg_staffing": 7.6,
+      "total_lost_mins": 635.2,
+      "avg_speed": 29.1,
+      "top_speed": 47.0
+    },
+    "DUKCAN-02V1": {
+      "runs": 24,
+      "avg_eff": 85.8,
+      "min_eff": 51.0,
+      "max_eff": 113.2,
+      "total_output": 132577,
+      "avg_output": 5524.0,
+      "max_output": 8941,
+      "avg_output_last5": 4682.0,
+      "avg_staffing": 7.5,
+      "total_lost_mins": 751.6,
+      "avg_speed": 25.4,
+      "top_speed": 30.0
+    },
+    "DUKCAN-02V2": {
+      "runs": 2,
+      "avg_eff": 84.3,
+      "min_eff": 81.2,
+      "max_eff": 87.3,
+      "total_output": 15063,
+      "avg_output": 7532.0,
+      "max_output": 7537,
+      "avg_output_last5": 7532.0,
+      "avg_staffing": 8.0,
+      "total_lost_mins": 109.2,
+      "avg_speed": 26.0,
+      "top_speed": 26.0
+    },
+    "DUKCAN-04": {
+      "runs": 33,
+      "avg_eff": 86.0,
+      "min_eff": 19.6,
+      "max_eff": 115.8,
+      "total_output": 372673,
+      "avg_output": 11293.0,
+      "max_output": 18650,
+      "avg_output_last5": 14672.0,
+      "avg_staffing": 5.8,
+      "total_lost_mins": 1001.6,
+      "avg_speed": 46.8,
+      "top_speed": 47.0
+    },
+    "DUKCAN-04V1": {
+      "runs": 4,
+      "avg_eff": 91.1,
+      "min_eff": 71.6,
+      "max_eff": 102.8,
+      "total_output": 34318,
+      "avg_output": 8580.0,
+      "max_output": 11248,
+      "avg_output_last5": 8580.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 254.0,
+      "avg_speed": 47.0,
+      "top_speed": 47.0
+    },
+    "DUKCAN-05": {
+      "runs": 19,
+      "avg_eff": 80.8,
+      "min_eff": 40.1,
+      "max_eff": 110.6,
+      "total_output": 133080,
+      "avg_output": 7004.0,
+      "max_output": 22339,
+      "avg_output_last5": 4168.0,
+      "avg_staffing": 7.7,
+      "total_lost_mins": 945.1,
+      "avg_speed": 27.6,
+      "top_speed": 36.0
+    },
+    "DUKCAN-05V1": {
+      "runs": 11,
+      "avg_eff": 91.5,
+      "min_eff": 64.6,
+      "max_eff": 112.5,
+      "total_output": 88592,
+      "avg_output": 8054.0,
+      "max_output": 12912,
+      "avg_output_last5": 9278.0,
+      "avg_staffing": 7.9,
+      "total_lost_mins": 218.3,
+      "avg_speed": 27.8,
+      "top_speed": 30.0
+    },
+    "DUKCAN-06V1": {
+      "runs": 4,
+      "avg_eff": 79.4,
+      "min_eff": 60.9,
+      "max_eff": 96.4,
+      "total_output": 29560,
+      "avg_output": 7390.0,
+      "max_output": 10321,
+      "avg_output_last5": 7390.0,
+      "avg_staffing": 8.0,
+      "total_lost_mins": 238.7,
+      "avg_speed": 30.0,
+      "top_speed": 30.0
+    },
+    "DUKCAN-07": {
+      "runs": 19,
+      "avg_eff": 72.4,
+      "min_eff": 0.0,
+      "max_eff": 100.3,
+      "total_output": 183990,
+      "avg_output": 9684.0,
+      "max_output": 15804,
+      "avg_output_last5": 9345.0,
+      "avg_staffing": 5.8,
+      "total_lost_mins": 1419.6,
+      "avg_speed": 41.6,
+      "top_speed": 43.0
+    },
+    "DUKCAN-07V1": {
+      "runs": 9,
+      "avg_eff": 70.6,
+      "min_eff": 27.9,
+      "max_eff": 85.4,
+      "total_output": 90070,
+      "avg_output": 10008.0,
+      "max_output": 13251,
+      "avg_output_last5": 10442.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 758.0,
+      "avg_speed": 44.0,
+      "top_speed": 44.0
+    },
+    "DUKCAN-08": {
+      "runs": 1,
+      "avg_eff": 77.8,
+      "min_eff": 77.8,
+      "max_eff": 77.8,
+      "total_output": 4362,
+      "avg_output": 4362.0,
+      "max_output": 4362,
+      "avg_output_last5": 4362.0,
+      "avg_staffing": 8.0,
+      "total_lost_mins": 41.6,
+      "avg_speed": 30.0,
+      "top_speed": 30.0
+    },
+    "DUKCAN-08V1": {
+      "runs": 8,
+      "avg_eff": 78.6,
+      "min_eff": 58.5,
+      "max_eff": 96.0,
+      "total_output": 42738,
+      "avg_output": 5342.0,
+      "max_output": 9552,
+      "avg_output_last5": 4180.0,
+      "avg_staffing": 7.6,
+      "total_lost_mins": 417.9,
+      "avg_speed": 24.5,
+      "top_speed": 26.0
+    },
+    "DUKCAN-10": {
+      "runs": 27,
+      "avg_eff": 85.5,
+      "min_eff": 63.9,
+      "max_eff": 117.4,
+      "total_output": 310389,
+      "avg_output": 11496.0,
+      "max_output": 16392,
+      "avg_output_last5": 9733.0,
+      "avg_staffing": 5.9,
+      "total_lost_mins": 1192.1,
+      "avg_speed": 43.4,
+      "top_speed": 45.0
+    },
+    "DUKCAN-10V1": {
+      "runs": 5,
+      "avg_eff": 85.1,
+      "min_eff": 70.2,
+      "max_eff": 100.4,
+      "total_output": 53320,
+      "avg_output": 10664.0,
+      "max_output": 16893,
+      "avg_output_last5": 10664.0,
+      "avg_staffing": 5.8,
+      "total_lost_mins": 186.4,
+      "avg_speed": 44.0,
+      "top_speed": 44.0
+    },
+    "DUKCAN-11": {
+      "runs": 20,
+      "avg_eff": 82.8,
+      "min_eff": 32.0,
+      "max_eff": 103.1,
+      "total_output": 138962,
+      "avg_output": 6948.0,
+      "max_output": 11599,
+      "avg_output_last5": 10283.0,
+      "avg_staffing": 7.6,
+      "total_lost_mins": 700.2,
+      "avg_speed": 29.6,
+      "top_speed": 47.0
+    },
+    "DUKCAN-12": {
+      "runs": 6,
+      "avg_eff": 59.6,
+      "min_eff": 38.5,
+      "max_eff": 74.8,
+      "total_output": 41906,
+      "avg_output": 6984.0,
+      "max_output": 11484,
+      "avg_output_last5": 7361.0,
+      "avg_staffing": 5.5,
+      "total_lost_mins": 618.5,
+      "avg_speed": 43.5,
+      "top_speed": 47.0
+    },
+    "DUKCAN-13": {
+      "runs": 2,
+      "avg_eff": 96.3,
+      "min_eff": 90.0,
+      "max_eff": 102.6,
+      "total_output": 25752,
+      "avg_output": 12876.0,
+      "max_output": 16872,
+      "avg_output_last5": 12876.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 13.1,
+      "avg_speed": 43.0,
+      "top_speed": 43.0
+    },
+    "DUKCAN-14": {
+      "runs": 9,
+      "avg_eff": 83.3,
+      "min_eff": 42.4,
+      "max_eff": 102.6,
+      "total_output": 61134,
+      "avg_output": 6793.0,
+      "max_output": 11772,
+      "avg_output_last5": 9161.0,
+      "avg_staffing": 7.2,
+      "total_lost_mins": 256.8,
+      "avg_speed": 29.6,
+      "top_speed": 30.0
+    },
+    "DUKCAN-15": {
+      "runs": 3,
+      "avg_eff": 69.5,
+      "min_eff": 67.1,
+      "max_eff": 73.6,
+      "total_output": 19104,
+      "avg_output": 6368.0,
+      "max_output": 7320,
+      "avg_output_last5": 6368.0,
+      "avg_staffing": 8.0,
+      "total_lost_mins": 319.2,
+      "avg_speed": 26.0,
+      "top_speed": 26.0
+    },
+    "DUKCAN-16": {
+      "runs": 6,
+      "avg_eff": 90.4,
+      "min_eff": 73.5,
+      "max_eff": 117.6,
+      "total_output": 90012,
+      "avg_output": 15002.0,
+      "max_output": 18000,
+      "avg_output_last5": 15002.0,
+      "avg_staffing": 2.2,
+      "total_lost_mins": 205.0,
+      "avg_speed": 54.8,
+      "top_speed": 60.0
+    },
+    "DUKCAN-17": {
+      "runs": 46,
+      "avg_eff": 63.8,
+      "min_eff": 0.0,
+      "max_eff": 99.5,
+      "total_output": 275551,
+      "avg_output": 5990.0,
+      "max_output": 10862,
+      "avg_output_last5": 5447.0,
+      "avg_staffing": 6.2,
+      "total_lost_mins": 4506.8,
+      "avg_speed": 33.8,
+      "top_speed": 42.0
+    },
+    "DUKCAN-18": {
+      "runs": 14,
+      "avg_eff": 69.0,
+      "min_eff": 27.5,
+      "max_eff": 96.9,
+      "total_output": 115817,
+      "avg_output": 8273.0,
+      "max_output": 15948,
+      "avg_output_last5": 9505.0,
+      "avg_staffing": 5.6,
+      "total_lost_mins": 1104.6,
+      "avg_speed": 46.9,
+      "top_speed": 47.0
+    },
+    "DUKCAN-19": {
+      "runs": 4,
+      "avg_eff": 69.0,
+      "min_eff": 63.2,
+      "max_eff": 84.5,
+      "total_output": 32922,
+      "avg_output": 8230.0,
+      "max_output": 15192,
+      "avg_output_last5": 8230.0,
+      "avg_staffing": 5.8,
+      "total_lost_mins": 268.5,
+      "avg_speed": 47.0,
+      "top_speed": 47.0
+    },
+    "DUKCAN-20": {
+      "runs": 10,
+      "avg_eff": 78.1,
+      "min_eff": 61.7,
+      "max_eff": 98.6,
+      "total_output": 68191,
+      "avg_output": 6819.0,
+      "max_output": 10607,
+      "avg_output_last5": 6917.0,
+      "avg_staffing": 7.9,
+      "total_lost_mins": 674.4,
+      "avg_speed": 30.4,
+      "top_speed": 34.0
+    },
+    "ENZSOL-01": {
+      "runs": 19,
+      "avg_eff": 88.5,
+      "min_eff": 32.7,
+      "max_eff": 120.7,
+      "total_output": 370708,
+      "avg_output": 19511.0,
+      "max_output": 27800,
+      "avg_output_last5": 14000.0,
+      "avg_staffing": 2.8,
+      "total_lost_mins": 577.2,
+      "avg_speed": 71.5,
+      "top_speed": 84.0
+    },
+    "ENZSOL-02": {
+      "runs": 31,
+      "avg_eff": 87.6,
+      "min_eff": 10.9,
+      "max_eff": 113.1,
+      "total_output": 459316,
+      "avg_output": 14817.0,
+      "max_output": 21120,
+      "avg_output_last5": 19584.0,
+      "avg_staffing": 3.1,
+      "total_lost_mins": 839.6,
+      "avg_speed": 51.6,
+      "top_speed": 56.0
+    },
+    "FUCHSL-01V1": {
+      "runs": 20,
+      "avg_eff": 77.9,
+      "min_eff": 41.2,
+      "max_eff": 102.1,
+      "total_output": 165668,
+      "avg_output": 8283.0,
+      "max_output": 13392,
+      "avg_output_last5": 8517.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 1065.9,
+      "avg_speed": 38.8,
+      "top_speed": 40.0
+    },
+    "FUCHSL-05": {
+      "runs": 1,
+      "avg_eff": 27.2,
+      "min_eff": 27.2,
+      "max_eff": 27.2,
+      "total_output": 2310,
+      "avg_output": 2310.0,
+      "max_output": 2310,
+      "avg_output_last5": 2310.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 154.8,
+      "avg_speed": 40.0,
+      "top_speed": 40.0
+    },
+    "FUCHSL-06": {
+      "runs": 17,
+      "avg_eff": 58.2,
+      "min_eff": 10.2,
+      "max_eff": 95.0,
+      "total_output": 16931,
+      "avg_output": 996.0,
+      "max_output": 3066,
+      "avg_output_last5": 874.0,
+      "avg_staffing": 4.9,
+      "total_lost_mins": 1405.4,
+      "avg_speed": 11.4,
+      "top_speed": 13.0
+    },
+    "FUCHSL-07": {
+      "runs": 4,
+      "avg_eff": 70.4,
+      "min_eff": 26.1,
+      "max_eff": 89.5,
+      "total_output": 7845,
+      "avg_output": 1961.0,
+      "max_output": 2900,
+      "avg_output_last5": 1961.0,
+      "avg_staffing": 4.0,
+      "total_lost_mins": 236.5,
+      "avg_speed": 11.0,
+      "top_speed": 12.0
+    },
+    "FUCHSL-11": {
+      "runs": 12,
+      "avg_eff": 47.1,
+      "min_eff": 20.7,
+      "max_eff": 98.3,
+      "total_output": 37307,
+      "avg_output": 3109.0,
+      "max_output": 10104,
+      "avg_output_last5": 4747.0,
+      "avg_staffing": 3.3,
+      "total_lost_mins": 1063.1,
+      "avg_speed": 31.1,
+      "top_speed": 45.0
+    },
+    "JRWATK-11": {
+      "runs": 16,
+      "avg_eff": 73.0,
+      "min_eff": 52.0,
+      "max_eff": 93.3,
+      "total_output": 41053,
+      "avg_output": 2566.0,
+      "max_output": 4608,
+      "avg_output_last5": 1282.0,
+      "avg_staffing": 4.8,
+      "total_lost_mins": 1187.3,
+      "avg_speed": 12.6,
+      "top_speed": 16.0
+    },
+    "JRWATK-11V1": {
+      "runs": 6,
+      "avg_eff": 77.8,
+      "min_eff": 59.4,
+      "max_eff": 108.2,
+      "total_output": 15912,
+      "avg_output": 2652.0,
+      "max_output": 4080,
+      "avg_output_last5": 2455.0,
+      "avg_staffing": 4.8,
+      "total_lost_mins": 354.0,
+      "avg_speed": 13.3,
+      "top_speed": 16.0
+    },
+    "JRWATK-21V1": {
+      "runs": 13,
+      "avg_eff": 76.2,
+      "min_eff": 56.0,
+      "max_eff": 92.4,
+      "total_output": 36582,
+      "avg_output": 2814.0,
+      "max_output": 4536,
+      "avg_output_last5": 3110.0,
+      "avg_staffing": 5.5,
+      "total_lost_mins": 919.5,
+      "avg_speed": 12.9,
+      "top_speed": 16.0
+    },
+    "MSEGRO-06": {
+      "runs": 1,
+      "avg_eff": 47.3,
+      "min_eff": 47.3,
+      "max_eff": 47.3,
+      "total_output": 5286,
+      "avg_output": 5286.0,
+      "max_output": 5286,
+      "avg_output_last5": 5286.0,
+      "avg_staffing": 6.0,
+      "total_lost_mins": 125.5,
+      "avg_speed": 47.0,
+      "top_speed": 47.0
+    },
+    "ODEBEA-02": {
+      "runs": 5,
+      "avg_eff": 53.1,
+      "min_eff": 25.7,
+      "max_eff": 80.6,
+      "total_output": 29508,
+      "avg_output": 5902.0,
+      "max_output": 10950,
+      "avg_output_last5": 5902.0,
+      "avg_staffing": 5.6,
+      "total_lost_mins": 422.4,
+      "avg_speed": 44.6,
+      "top_speed": 47.0
+    },
+    "OKECOM-01": {
+      "runs": 33,
+      "avg_eff": 71.7,
+      "min_eff": 45.6,
+      "max_eff": 91.2,
+      "total_output": 240094,
+      "avg_output": 7276.0,
+      "max_output": 14136,
+      "avg_output_last5": 5545.0,
+      "avg_staffing": 7.6,
+      "total_lost_mins": 2239.5,
+      "avg_speed": 41.2,
+      "top_speed": 45.0
+    },
+    "OKECOM-03": {
+      "runs": 13,
+      "avg_eff": 74.4,
+      "min_eff": 40.3,
+      "max_eff": 93.6,
+      "total_output": 107520,
+      "avg_output": 8271.0,
+      "max_output": 13008,
+      "avg_output_last5": 9257.0,
+      "avg_staffing": 7.7,
+      "total_lost_mins": 768.0,
+      "avg_speed": 40.5,
+      "top_speed": 46.0
+    },
+    "OKECOM-04": {
+      "runs": 2,
+      "avg_eff": 65.7,
+      "min_eff": 62.8,
+      "max_eff": 68.7,
+      "total_output": 11393,
+      "avg_output": 5696.0,
+      "max_output": 7358,
+      "avg_output_last5": 5696.0,
+      "avg_staffing": 7.0,
+      "total_lost_mins": 136.7,
+      "avg_speed": 42.0,
+      "top_speed": 42.0
+    },
+    "OKECOM-05": {
+      "runs": 32,
+      "avg_eff": 77.9,
+      "min_eff": 44.0,
+      "max_eff": 99.3,
+      "total_output": 187804,
+      "avg_output": 5869.0,
+      "max_output": 11222,
+      "avg_output_last5": 6628.0,
+      "avg_staffing": 8.7,
+      "total_lost_mins": 1826.4,
+      "avg_speed": 27.0,
+      "top_speed": 30.0
+    },
+    "OKECOM-06": {
+      "runs": 10,
+      "avg_eff": 73.6,
+      "min_eff": 53.9,
+      "max_eff": 91.2,
+      "total_output": 64164,
+      "avg_output": 6416.0,
+      "max_output": 11916,
+      "avg_output_last5": 4970.0,
+      "avg_staffing": 7.8,
+      "total_lost_mins": 576.4,
+      "avg_speed": 41.4,
+      "top_speed": 42.0
+    },
+    "OKECOM-07": {
+      "runs": 12,
+      "avg_eff": 73.1,
+      "min_eff": 51.8,
+      "max_eff": 95.3,
+      "total_output": 86136,
+      "avg_output": 7178.0,
+      "max_output": 12846,
+      "avg_output_last5": 6468.0,
+      "avg_staffing": 7.0,
+      "total_lost_mins": 800.3,
+      "avg_speed": 38.9,
+      "top_speed": 42.0
+    },
+    "OKECOM-08": {
+      "runs": 14,
+      "avg_eff": 77.8,
+      "min_eff": 49.7,
+      "max_eff": 101.1,
+      "total_output": 104260,
+      "avg_output": 7447.0,
+      "max_output": 11600,
+      "avg_output_last5": 7676.0,
+      "avg_staffing": 6.7,
+      "total_lost_mins": 745.5,
+      "avg_speed": 33.0,
+      "top_speed": 42.0
+    },
+    "OKECOM-10": {
+      "runs": 9,
+      "avg_eff": 84.9,
+      "min_eff": 60.4,
+      "max_eff": 112.5,
+      "total_output": 49548,
+      "avg_output": 5505.0,
+      "max_output": 9258,
+      "avg_output_last5": 5992.0,
+      "avg_staffing": 8.0,
+      "total_lost_mins": 297.8,
+      "avg_speed": 24.3,
+      "top_speed": 30.0
+    },
+    "OKECOM-11": {
+      "runs": 3,
+      "avg_eff": 74.5,
+      "min_eff": 57.1,
+      "max_eff": 88.7,
+      "total_output": 10664,
+      "avg_output": 3555.0,
+      "max_output": 4344,
+      "avg_output_last5": 3555.0,
+      "avg_staffing": 8.3,
+      "total_lost_mins": 120.9,
+      "avg_speed": 29.3,
+      "top_speed": 32.0
+    },
+    "OKECOM-PILOT-08": {
+      "runs": 1,
+      "avg_eff": 49.6,
+      "min_eff": 49.6,
+      "max_eff": 49.6,
+      "total_output": 1152,
+      "avg_output": 1152.0,
+      "max_output": 1152,
+      "avg_output_last5": 1152.0,
+      "avg_staffing": 7.0,
+      "total_lost_mins": 114.5,
+      "avg_speed": 42.0,
+      "top_speed": 42.0
+    },
+    "PACTEC-01G": {
+      "runs": 23,
+      "avg_eff": 76.6,
+      "min_eff": 29.4,
+      "max_eff": 104.7,
+      "total_output": 52543,
+      "avg_output": 2284.0,
+      "max_output": 4275,
+      "avg_output_last5": 2376.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 1058.3,
+      "avg_speed": 12.6,
+      "top_speed": 16.0
+    },
+    "PACTEC-02-FLA": {
+      "runs": 2,
+      "avg_eff": 78.8,
+      "min_eff": 78.4,
+      "max_eff": 79.2,
+      "total_output": 2400,
+      "avg_output": 1200.0,
+      "max_output": 2120,
+      "avg_output_last5": 1200.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 90.6,
+      "avg_speed": 7.0,
+      "top_speed": 7.0
+    },
+    "PACTEC-03-FLAT": {
+      "runs": 1,
+      "avg_eff": 44.5,
+      "min_eff": 44.5,
+      "max_eff": 44.5,
+      "total_output": 664,
+      "avg_output": 664.0,
+      "max_output": 664,
+      "avg_output_last5": 664.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 63.7,
+      "avg_speed": 13.0,
+      "top_speed": 13.0
+    },
+    "PACTEC-05G": {
+      "runs": 5,
+      "avg_eff": 35.0,
+      "min_eff": 17.9,
+      "max_eff": 98.0,
+      "total_output": 4320,
+      "avg_output": 864.0,
+      "max_output": 1800,
+      "avg_output_last5": 864.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 900.0,
+      "avg_speed": 11.6,
+      "top_speed": 12.0
+    },
+    "PACTEC-06G": {
+      "runs": 8,
+      "avg_eff": 33.4,
+      "min_eff": 8.0,
+      "max_eff": 102.0,
+      "total_output": 5706,
+      "avg_output": 713.0,
+      "max_output": 1944,
+      "avg_output_last5": 864.0,
+      "avg_staffing": 1.9,
+      "total_lost_mins": 1414.9,
+      "avg_speed": 13.5,
+      "top_speed": 16.0
+    },
+    "PACTEC-07G": {
+      "runs": 4,
+      "avg_eff": 14.6,
+      "min_eff": 12.3,
+      "max_eff": 16.8,
+      "total_output": 1920,
+      "avg_output": 480.0,
+      "max_output": 696,
+      "avg_output_last5": 480.0,
+      "avg_staffing": 1.8,
+      "total_lost_mins": 962.0,
+      "avg_speed": 12.0,
+      "top_speed": 12.0
+    },
+    "PURPRO-01": {
+      "runs": 5,
+      "avg_eff": 60.0,
+      "min_eff": 39.2,
+      "max_eff": 84.0,
+      "total_output": 18523,
+      "avg_output": 3705.0,
+      "max_output": 7240,
+      "avg_output_last5": 3705.0,
+      "avg_staffing": 2.4,
+      "total_lost_mins": 400.8,
+      "avg_speed": 26.0,
+      "top_speed": 26.0
+    },
+    "RAWSUG-01": {
+      "runs": 16,
+      "avg_eff": 73.9,
+      "min_eff": 35.7,
+      "max_eff": 98.0,
+      "total_output": 152900,
+      "avg_output": 9556.0,
+      "max_output": 15000,
+      "avg_output_last5": 13080.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 1161.9,
+      "avg_speed": 40.4,
+      "top_speed": 49.0
+    },
+    "RAWSUG-02": {
+      "runs": 19,
+      "avg_eff": 93.6,
+      "min_eff": 51.9,
+      "max_eff": 122.0,
+      "total_output": 284830,
+      "avg_output": 14991.0,
+      "max_output": 22400,
+      "avg_output_last5": 14082.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 253.9,
+      "avg_speed": 47.5,
+      "top_speed": 48.0
+    },
+    "SYNTEC-03": {
+      "runs": 2,
+      "avg_eff": 79.6,
+      "min_eff": 72.4,
+      "max_eff": 86.8,
+      "total_output": 4650,
+      "avg_output": 2325.0,
+      "max_output": 3100,
+      "avg_output_last5": 2325.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 101.4,
+      "avg_speed": 14.0,
+      "top_speed": 14.0
+    },
+    "TRIPRO-01": {
+      "runs": 1,
+      "avg_eff": 86.8,
+      "min_eff": 86.8,
+      "max_eff": 86.8,
+      "total_output": 10800,
+      "avg_output": 10800.0,
+      "max_output": 10800,
+      "avg_output_last5": 10800.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 27.0,
+      "avg_speed": 61.0,
+      "top_speed": 61.0
+    },
+    "TRIPRO-01V1": {
+      "runs": 33,
+      "avg_eff": 83.2,
+      "min_eff": 40.6,
+      "max_eff": 110.6,
+      "total_output": 506106,
+      "avg_output": 15337.0,
+      "max_output": 23700,
+      "avg_output_last5": 13440.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 1887.9,
+      "avg_speed": 54.8,
+      "top_speed": 61.0
+    },
+    "TRUFRE-01": {
+      "runs": 108,
+      "avg_eff": 70.2,
+      "min_eff": 31.3,
+      "max_eff": 114.4,
+      "total_output": 928716,
+      "avg_output": 8599.0,
+      "max_output": 18200,
+      "avg_output_last5": 11160.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 7949.3,
+      "avg_speed": 44.4,
+      "top_speed": 50.0
+    },
+    "TRUFRE-01V1": {
+      "runs": 1,
+      "avg_eff": 87.1,
+      "min_eff": 87.1,
+      "max_eff": 87.1,
+      "total_output": 11600,
+      "avg_output": 11600.0,
+      "max_output": 11600,
+      "avg_output_last5": 11600.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 47.5,
+      "avg_speed": 36.0,
+      "top_speed": 36.0
+    },
+    "TRUFRE-04": {
+      "runs": 55,
+      "avg_eff": 87.2,
+      "min_eff": 26.1,
+      "max_eff": 112.0,
+      "total_output": 425810,
+      "avg_output": 7742.0,
+      "max_output": 13700,
+      "avg_output_last5": 7540.0,
+      "avg_staffing": 2.2,
+      "total_lost_mins": 1604.8,
+      "avg_speed": 30.4,
+      "top_speed": 37.0
+    },
+    "TRUFRE-05": {
+      "runs": 29,
+      "avg_eff": 90.6,
+      "min_eff": 68.6,
+      "max_eff": 124.0,
+      "total_output": 223125,
+      "avg_output": 7694.0,
+      "max_output": 12300,
+      "avg_output_last5": 7920.0,
+      "avg_staffing": 2.1,
+      "total_lost_mins": 814.0,
+      "avg_speed": 31.3,
+      "top_speed": 46.0
+    },
+    "TRUFRE-06": {
+      "runs": 20,
+      "avg_eff": 93.9,
+      "min_eff": 72.7,
+      "max_eff": 109.4,
+      "total_output": 165200,
+      "avg_output": 8260.0,
+      "max_output": 11700,
+      "avg_output_last5": 9580.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 251.8,
+      "avg_speed": 29.4,
+      "top_speed": 32.0
+    },
+    "TRUFRE-08": {
+      "runs": 11,
+      "avg_eff": 83.2,
+      "min_eff": 27.6,
+      "max_eff": 100.4,
+      "total_output": 86770,
+      "avg_output": 7888.0,
+      "max_output": 11900,
+      "avg_output_last5": 7700.0,
+      "avg_staffing": 2.1,
+      "total_lost_mins": 597.5,
+      "avg_speed": 30.0,
+      "top_speed": 31.0
+    },
+    "TRUFRE-09": {
+      "runs": 11,
+      "avg_eff": 84.1,
+      "min_eff": 50.6,
+      "max_eff": 106.3,
+      "total_output": 80200,
+      "avg_output": 7291.0,
+      "max_output": 12600,
+      "avg_output_last5": 6420.0,
+      "avg_staffing": 2.1,
+      "total_lost_mins": 295.1,
+      "avg_speed": 31.8,
+      "top_speed": 40.0
+    },
+    "TRUFRE-11": {
+      "runs": 11,
+      "avg_eff": 80.8,
+      "min_eff": 44.3,
+      "max_eff": 101.3,
+      "total_output": 44500,
+      "avg_output": 4045.0,
+      "max_output": 10300,
+      "avg_output_last5": 4000.0,
+      "avg_staffing": 31.8,
+      "total_lost_mins": 306.2,
+      "avg_speed": 30.5,
+      "top_speed": 36.0
+    },
+    "TRUFRE-12": {
+      "runs": 5,
+      "avg_eff": 58.7,
+      "min_eff": 38.4,
+      "max_eff": 73.3,
+      "total_output": 29389,
+      "avg_output": 5878.0,
+      "max_output": 9081,
+      "avg_output_last5": 5878.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 489.4,
+      "avg_speed": 34.8,
+      "top_speed": 36.0
+    },
+    "TRUFRE-13": {
+      "runs": 7,
+      "avg_eff": 84.6,
+      "min_eff": 60.2,
+      "max_eff": 97.4,
+      "total_output": 55300,
+      "avg_output": 7900.0,
+      "max_output": 12300,
+      "avg_output_last5": 7500.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 265.1,
+      "avg_speed": 31.7,
+      "top_speed": 33.0
+    },
+    "TRUFRE-14": {
+      "runs": 13,
+      "avg_eff": 90.6,
+      "min_eff": 7.8,
+      "max_eff": 110.1,
+      "total_output": 106300,
+      "avg_output": 8177.0,
+      "max_output": 12500,
+      "avg_output_last5": 7840.0,
+      "avg_staffing": 2.0,
+      "total_lost_mins": 490.2,
+      "avg_speed": 29.6,
+      "top_speed": 30.0
+    },
+    "TRUFRE-15": {
+      "runs": 3,
+      "avg_eff": 82.8,
+      "min_eff": 68.4,
+      "max_eff": 95.8,
+      "total_output": 24854,
+      "avg_output": 8285.0,
+      "max_output": 14792,
+      "avg_output_last5": 8285.0,
+      "avg_staffing": 5.7,
+      "total_lost_mins": 114.2,
+      "avg_speed": 46.0,
+      "top_speed": 46.0
+    },
+    "TRUFRE-16": {
+      "runs": 2,
+      "avg_eff": 83.1,
+      "min_eff": 82.4,
+      "max_eff": 83.9,
+      "total_output": 3570,
+      "avg_output": 1785.0,
+      "max_output": 2310,
+      "avg_output_last5": 1785.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 59.5,
+      "avg_speed": 12.0,
+      "top_speed": 12.0
+    },
+    "TRUFRE-17": {
+      "runs": 2,
+      "avg_eff": 60.0,
+      "min_eff": 42.2,
+      "max_eff": 77.8,
+      "total_output": 3440,
+      "avg_output": 1720.0,
+      "max_output": 2320,
+      "avg_output_last5": 1720.0,
+      "avg_staffing": 2.5,
+      "total_lost_mins": 168.9,
+      "avg_speed": 13.0,
+      "top_speed": 13.0
+    },
+    "TRUFRE-18": {
+      "runs": 7,
+      "avg_eff": 47.6,
+      "min_eff": 27.0,
+      "max_eff": 82.8,
+      "total_output": 7600,
+      "avg_output": 1086.0,
+      "max_output": 2960,
+      "avg_output_last5": 1168.0,
+      "avg_staffing": 2.1,
+      "total_lost_mins": 895.2,
+      "avg_speed": 10.7,
+      "top_speed": 13.0
+    },
+    "WATINC-01-100": {
+      "runs": 6,
+      "avg_eff": 83.4,
+      "min_eff": 68.1,
+      "max_eff": 102.1,
+      "total_output": 41375,
+      "avg_output": 6896.0,
+      "max_output": 11250,
+      "avg_output_last5": 6525.0,
+      "avg_staffing": 3.0,
+      "total_lost_mins": 253.2,
+      "avg_speed": 36.0,
+      "top_speed": 36.0
+    }
+  },
+  "lines": {
+    "500": {
+      "runs": 7,
+      "avg_eff": 80.4,
+      "total_output": 14810,
+      "total_lost_mins": 309.4,
+      "speed_min": 10.0,
+      "speed_max": 14.0,
+      "speed_avg": 11.1
+    },
+    "B1": {
+      "runs": 158,
+      "avg_eff": 87.9,
+      "total_output": 1193399,
+      "total_lost_mins": 4710.3,
+      "speed_min": 24.0,
+      "speed_max": 46.0,
+      "speed_avg": 30.4
+    },
+    "B2": {
+      "runs": 7,
+      "avg_eff": 84.6,
+      "total_output": 81272,
+      "total_lost_mins": 360.0,
+      "speed_min": 36.0,
+      "speed_max": 52.0,
+      "speed_avg": 41.1
+    },
+    "B3": {
+      "runs": 15,
+      "avg_eff": 88.8,
+      "total_output": 223192,
+      "total_lost_mins": 549.7,
+      "speed_min": 49.0,
+      "speed_max": 60.0,
+      "speed_avg": 54.7
+    },
+    "B4": {
+      "runs": 67,
+      "avg_eff": 88.2,
+      "total_output": 731882,
+      "total_lost_mins": 1597.6,
+      "speed_min": 30.0,
+      "speed_max": 50.0,
+      "speed_avg": 41.9
+    },
+    "B5": {
+      "runs": 21,
+      "avg_eff": 70.6,
+      "total_output": 171423,
+      "total_lost_mins": 1562.7,
+      "speed_min": 26.0,
+      "speed_max": 49.0,
+      "speed_avg": 37.0
+    },
+    "B6": {
+      "runs": 157,
+      "avg_eff": 73.7,
+      "total_output": 1566655,
+      "total_lost_mins": 10684.3,
+      "speed_min": 30.0,
+      "speed_max": 61.0,
+      "speed_avg": 46.2
+    },
+    "BTL I": {
+      "runs": 46,
+      "avg_eff": 80.0,
+      "total_output": 319528,
+      "total_lost_mins": 2518.7,
+      "speed_min": 18.0,
+      "speed_max": 46.0,
+      "speed_avg": 29.7
+    },
+    "BTL II": {
+      "runs": 20,
+      "avg_eff": 80.5,
+      "total_output": 112548,
+      "total_lost_mins": 664.4,
+      "speed_min": 18.0,
+      "speed_max": 36.0,
+      "speed_avg": 28.8
+    },
+    "ELGIN I": {
+      "runs": 171,
+      "avg_eff": 83.1,
+      "total_output": 1123425,
+      "total_lost_mins": 7093.0,
+      "speed_min": 20.0,
+      "speed_max": 36.0,
+      "speed_avg": 27.3
+    },
+    "ELGIN II": {
+      "runs": 65,
+      "avg_eff": 70.9,
+      "total_output": 245520,
+      "total_lost_mins": 4440.6,
+      "speed_min": 9.0,
+      "speed_max": 30.0,
+      "speed_avg": 20.7
+    },
+    "KALIX I": {
+      "runs": 68,
+      "avg_eff": 77.0,
+      "total_output": 694193,
+      "total_lost_mins": 4232.9,
+      "speed_min": 40.0,
+      "speed_max": 50.0,
+      "speed_avg": 43.0
+    },
+    "KALIX II": {
+      "runs": 69,
+      "avg_eff": 76.3,
+      "total_output": 656046,
+      "total_lost_mins": 4207.1,
+      "speed_min": 40.0,
+      "speed_max": 47.0,
+      "speed_avg": 46.5
+    },
+    "KENTEX": {
+      "runs": 29,
+      "avg_eff": 67.2,
+      "total_output": 182533,
+      "total_lost_mins": 1829.9,
+      "speed_min": 23.0,
+      "speed_max": 40.0,
+      "speed_avg": 35.1
+    },
+    "MB": {
+      "runs": 12,
+      "avg_eff": 81.6,
+      "total_output": 58922,
+      "total_lost_mins": 719.7,
+      "speed_min": 18.0,
+      "speed_max": 19.0,
+      "speed_avg": 18.7
+    },
+    "PP 1": {
+      "runs": 70,
+      "avg_eff": 87.1,
+      "total_output": 1002521,
+      "total_lost_mins": 2470.5,
+      "speed_min": 13.0,
+      "speed_max": 84.0,
+      "speed_avg": 49.7
+    },
+    "PP 2": {
+      "runs": 24,
+      "avg_eff": 90.4,
+      "total_output": 450274,
+      "total_lost_mins": 728.4,
+      "speed_min": 56.0,
+      "speed_max": 72.0,
+      "speed_avg": 67.7
+    },
+    "PP 3": {
+      "runs": 43,
+      "avg_eff": 58.2,
+      "total_output": 76603,
+      "total_lost_mins": 4417.5,
+      "speed_min": 7.0,
+      "speed_max": 68.0,
+      "speed_avg": 13.6
+    },
+    "PSG": {
+      "runs": 211,
+      "avg_eff": 78.8,
+      "total_output": 600169,
+      "total_lost_mins": 11862.1,
+      "speed_min": 7.0,
+      "speed_max": 28.0,
+      "speed_avg": 13.5
+    },
+    "REB": {
+      "runs": 151,
+      "avg_eff": 70.0,
+      "total_output": 1039124,
+      "total_lost_mins": 11308.7,
+      "speed_min": 25.0,
+      "speed_max": 46.0,
+      "speed_avg": 37.5
+    },
+    "SINGLE SHOT": {
+      "runs": 6,
+      "avg_eff": 46.4,
+      "total_output": 6372,
+      "total_lost_mins": 667.5,
+      "speed_min": 12.0,
+      "speed_max": 12.0,
+      "speed_avg": 12.0
+    },
+    "WHITE BROWN": {
+      "runs": 6,
+      "avg_eff": 93.1,
+      "total_output": 143828,
+      "total_lost_mins": 74.7,
+      "speed_min": 100.0,
+      "speed_max": 100.0,
+      "speed_avg": 100.0
+    }
+  },
+  "operators": {
+    "ANDY": {
+      "runs": 161,
+      "avg_eff": 76.8
+    },
+    "CHUYA": {
+      "runs": 176,
+      "avg_eff": 75.9
+    },
+    "EVA": {
+      "runs": 118,
+      "avg_eff": 79.8
+    },
+    "GLORIA": {
+      "runs": 104,
+      "avg_eff": 81.7
+    },
+    "KARLA": {
+      "runs": 145,
+      "avg_eff": 77.8
+    },
+    "LINDA": {
+      "runs": 31,
+      "avg_eff": 80.7
+    },
+    "MARTHA": {
+      "runs": 3,
+      "avg_eff": 84.1
+    },
+    "MARTIN": {
+      "runs": 92,
+      "avg_eff": 78.6
+    },
+    "NELLY": {
+      "runs": 163,
+      "avg_eff": 81.9
+    },
+    "NORMA": {
+      "runs": 35,
+      "avg_eff": 83.9
+    },
+    "REB": {
+      "runs": 2,
+      "avg_eff": 61.7
+    },
+    "ROCIO": {
+      "runs": 2,
+      "avg_eff": 91.0
+    },
+    "ROCIO B": {
+      "runs": 8,
+      "avg_eff": 79.1
+    },
+    "ROCIO M": {
+      "runs": 120,
+      "avg_eff": 79.4
+    },
+    "SELENE": {
+      "runs": 2,
+      "avg_eff": 63.2
+    },
+    "SERENA": {
+      "runs": 97,
+      "avg_eff": 73.7
+    },
+    "VERO": {
+      "runs": 1,
+      "avg_eff": 73.2
+    }
+  },
+  "weeklyData": {
+    "Monday": {
+      "day": "Monday",
+      "date": "02/02/2026",
+      "efficiency": 65.0,
+      "units": 48599,
+      "labor": 33,
+      "runs": [
+        {
+          "sku": "DUKCAN-17",
+          "eff": 65.3,
+          "units": 7993,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "REB"
+        },
+        {
+          "sku": "OKECOM-05",
+          "eff": 87.0,
+          "units": 7546,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 68.8,
+          "units": 10800,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B5"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 47.9,
+          "units": 440,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PSG"
+        },
+        {
+          "sku": "OKECOM-05",
+          "eff": 84.6,
+          "units": 9060,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 73.5,
+          "units": 11800,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B5"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 27.9,
+          "units": 960,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "PSG"
+        }
+      ]
+    },
+    "Tuesday": {
+      "day": "Tuesday",
+      "date": "02/03/2026",
+      "efficiency": 64.8,
+      "units": 47471,
+      "labor": 42,
+      "runs": [
+        {
+          "sku": "OKECOM-05",
+          "eff": 82.1,
+          "units": 4626,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "DUKCAN-17",
+          "eff": 68.3,
+          "units": 8781,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "REB"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 79.0,
+          "units": 10400,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B5"
+        },
+        {
+          "sku": "FUCHSL-11",
+          "eff": 44.5,
+          "units": 4344,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "KALIX II"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 42.2,
+          "units": 560,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PSG"
+        },
+        {
+          "sku": "TRUFRE-01",
+          "eff": 114.4,
+          "units": 3200,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B6"
+        },
+        {
+          "sku": "DUKCAN-17",
+          "eff": 0.0,
+          "units": 0,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "REB"
+        },
+        {
+          "sku": "TRUFRE-01",
+          "eff": 41.7,
+          "units": 2000,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B6"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 93.0,
+          "units": 12800,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B5"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 82.8,
+          "units": 760,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "PSG"
+        }
+      ]
+    },
+    "Wednesday": {
+      "day": "Wednesday",
+      "date": "02/04/2026",
+      "efficiency": 71.3,
+      "units": 74747,
+      "labor": 32,
+      "runs": [
+        {
+          "sku": "RAWSUG-01",
+          "eff": 95.9,
+          "units": 13200,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B5"
+        },
+        {
+          "sku": "FUCHSL-11",
+          "eff": 61.4,
+          "units": 10104,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "KALIX II"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 27.0,
+          "units": 1120,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PSG"
+        },
+        {
+          "sku": "TRUFRE-01",
+          "eff": 87.0,
+          "units": 15300,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B6"
+        },
+        {
+          "sku": "DUKCAN-17",
+          "eff": 54.1,
+          "units": 6205,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "REB"
+        },
+        {
+          "sku": "OKECOM-05",
+          "eff": 99.3,
+          "units": 9118,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "TRUFRE-01",
+          "eff": 67.5,
+          "units": 8900,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B6"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 78.4,
+          "units": 10800,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B5"
+        }
+      ]
+    },
+    "Thursday": {
+      "day": "Thursday",
+      "date": "02/05/2026",
+      "efficiency": 74.3,
+      "units": 68401,
+      "labor": 36,
+      "runs": [
+        {
+          "sku": "DUKCAN-17",
+          "eff": 77.3,
+          "units": 4255,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "REB"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 91.0,
+          "units": 13000,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B5"
+        },
+        {
+          "sku": "TRUFRE-18",
+          "eff": 61.6,
+          "units": 2960,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PSG"
+        },
+        {
+          "sku": "FUCHSL-11",
+          "eff": 52.1,
+          "units": 7632,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "KALIX II"
+        },
+        {
+          "sku": "OKECOM-05",
+          "eff": 76.5,
+          "units": 2342,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "TRUFRE-01",
+          "eff": 82.1,
+          "units": 15700,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B6"
+        },
+        {
+          "sku": "OKECOM-05",
+          "eff": 97.9,
+          "units": 7992,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "ELGIN I"
+        },
+        {
+          "sku": "TRUFRE-17",
+          "eff": 42.2,
+          "units": 1120,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "PSG"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 87.6,
+          "units": 13400,
+          "shift": 2,
+          "shiftLabel": "2nd (TS)",
+          "line": "B5"
+        }
+      ]
+    },
+    "Friday": {
+      "day": "Friday",
+      "date": "02/06/2026",
+      "efficiency": 67.6,
+      "units": 42031,
+      "labor": 21,
+      "runs": [
+        {
+          "sku": "TRUFRE-01",
+          "eff": 74.3,
+          "units": 13900,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B6"
+        },
+        {
+          "sku": "RAWSUG-01",
+          "eff": 98.0,
+          "units": 15000,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "B5"
+        },
+        {
+          "sku": "FUCHSL-11",
+          "eff": 42.9,
+          "units": 672,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "KALIX I"
+        },
+        {
+          "sku": "DUKCAN-12",
+          "eff": 68.0,
+          "units": 9475,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "KALIX II"
+        },
+        {
+          "sku": "TRUFRE-17",
+          "eff": 77.8,
+          "units": 2320,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PSG"
+        },
+        {
+          "sku": "PACTEC-03-FLAT",
+          "eff": 44.5,
+          "units": 664,
+          "shift": 1,
+          "shiftLabel": "1st (SL)",
+          "line": "PP 3"
+        }
+      ]
+    }
+  },
+  "weeklySkus": {
+    "DUKCAN-17": {
+      "runs": 5,
+      "avg_eff": 53.0,
+      "total_units": 27234
+    },
+    "OKECOM-05": {
+      "runs": 6,
+      "avg_eff": 87.9,
+      "total_units": 40684
+    },
+    "RAWSUG-01": {
+      "runs": 9,
+      "avg_eff": 85.0,
+      "total_units": 111200
+    },
+    "TRUFRE-18": {
+      "runs": 6,
+      "avg_eff": 48.2,
+      "total_units": 6800
+    },
+    "FUCHSL-11": {
+      "runs": 4,
+      "avg_eff": 50.2,
+      "total_units": 22752
+    },
+    "TRUFRE-01": {
+      "runs": 6,
+      "avg_eff": 77.8,
+      "total_units": 59000
+    },
+    "TRUFRE-17": {
+      "runs": 2,
+      "avg_eff": 60.0,
+      "total_units": 3440
+    },
+    "DUKCAN-12": {
+      "runs": 1,
+      "avg_eff": 68.0,
+      "total_units": 9475
+    },
+    "PACTEC-03-FLAT": {
+      "runs": 1,
+      "avg_eff": 44.5,
+      "total_units": 664
+    }
+  },
+  "monthlyData": {
+    "2025-01": {
+      "avg_eff": 77.6,
+      "total_lost_mins": 6299.8,
+      "runs": 108
+    },
+    "2025-02": {
+      "avg_eff": 80.6,
+      "total_lost_mins": 620.9,
+      "runs": 15
+    },
+    "2025-04": {
+      "avg_eff": 77.3,
+      "total_lost_mins": 8072.2,
+      "runs": 135
+    },
+    "2025-05": {
+      "avg_eff": 78.3,
+      "total_lost_mins": 7365.9,
+      "runs": 132
+    },
+    "2025-06": {
+      "avg_eff": 77.1,
+      "total_lost_mins": 8447.7,
+      "runs": 141
+    },
+    "2025-07": {
+      "avg_eff": 80.6,
+      "total_lost_mins": 6994.4,
+      "runs": 140
+    },
+    "2025-08": {
+      "avg_eff": 77.3,
+      "total_lost_mins": 6458.0,
+      "runs": 119
+    },
+    "2025-09": {
+      "avg_eff": 79.6,
+      "total_lost_mins": 4674.2,
+      "runs": 89
+    },
+    "2025-10": {
+      "avg_eff": 84.2,
+      "total_lost_mins": 4562.1,
+      "runs": 118
+    },
+    "2025-11": {
+      "avg_eff": 79.6,
+      "total_lost_mins": 4917.3,
+      "runs": 106
+    },
+    "2025-12": {
+      "avg_eff": 79.5,
+      "total_lost_mins": 6928.0,
+      "runs": 145
+    },
+    "2026-01": {
+      "avg_eff": 75.8,
+      "total_lost_mins": 8244.0,
+      "runs": 135
+    },
+    "2026-02": {
+      "avg_eff": 68.7,
+      "total_lost_mins": 3425.2,
+      "runs": 40
+    }
+  },
+  "top3Insights": [
+    {
+      "sku": "TRUFRE-01",
+      "lost": 7949.0,
+      "runs": 108,
+      "avg_eff": 70.2,
+      "avg_lost_per_run": 73.6,
+      "primary_line": "B6",
+      "top_operators": [
+        "EVA",
+        "KARLA",
+        "NELLY"
+      ],
+      "issues": [
+        "chain timing/sync issues",
+        "film/photo eye/seal problems",
+        "material supply delays",
+        "printer/coder issues",
+        "weight/fill accuracy issues",
+        "conveyor jams/stoppages"
+      ],
+      "sample_notes": [
+        "ISSUES WITH THE PHOTO EYE NOT READING THE FILM CORRECTLY/STOPPED THE LINE AT 6PM",
+        "WE HAVE ISSUES WITH EYE WAS NOT READING PROPERLY THE FILM .",
+        "had to unroll 4 rolls of film that didn't have silver on the insides. Had to stop everytime we finished a roll of film."
+      ]
+    },
+    {
+      "sku": "DAPBAB-04V2",
+      "lost": 5403.0,
+      "runs": 113,
+      "avg_eff": 83.3,
+      "avg_lost_per_run": 47.8,
+      "primary_line": "PSG",
+      "top_operators": [
+        "SERENA",
+        "MARTIN",
+        "ANDY"
+      ],
+      "issues": [
+        "film/photo eye/seal problems",
+        "material supply delays",
+        "labeling/label quality issues",
+        "printer/coder issues",
+        "weight/fill accuracy issues",
+        "conveyor jams/stoppages"
+      ],
+      "sample_notes": [
+        "had issues with the left side conveyor getting stuck several times.",
+        "ISSUES WITH THE MATERIAL BEING COLD/RAN OUT ALL THE POUCHES",
+        "Ran 1 side, moved 2 people to help on Elgin I-Issues with the printer not working"
+      ]
+    },
+    {
+      "sku": "DUKCAN-17",
+      "lost": 4507.0,
+      "runs": 46,
+      "avg_eff": 63.8,
+      "avg_lost_per_run": 98.0,
+      "primary_line": "REB",
+      "top_operators": [
+        "CHUYA",
+        "ANDY",
+        "NELLY"
+      ],
+      "issues": [
+        "material supply delays",
+        "labeling/label quality issues",
+        "capper malfunction",
+        "printer/coder issues"
+      ],
+      "sample_notes": [
+        "Stopped the machine for 90 mins, waiting on material to place into totes",
+        "No issues to report .",
+        "Ran out all the material ."
+      ]
+    }
+  ],
+  "meta": {
+    "dateRange": "Jan 1, 2025 \u2013 Feb 6, 2026",
+    "totalRuns": 1423,
+    "totalSKUs": 104,
+    "totalLines": 22,
+    "weekLabel": "Feb 02 \u2013 Feb 06, 2026",
+    "weekRuns": 40,
+    "overallEff": 78.5,
+    "weekEff": 68.7,
+    "currentMonth": "2026-02",
+    "currentMonthLost": 3425.2,
+    "priorAvgLost": 5865.0
+  }
+};
+
+// ━━━━━━━━ CHART.JS DEFAULTS ━━━━━━━━
+Chart.defaults.color = '#8b8fa3';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.legend.display = false;
+
+// ━━━━━━━━ HELPERS ━━━━━━━━
+const C = {
+    blue: '#4f8cff', green: '#34d399', yellow: '#fbbf24',
+    red: '#f87171', orange: '#fb923c', purple: '#a78bfa',
+    dim: 'rgba(255,255,255,0.08)'
+};
+
+function effColor(v) {
+    if (v >= 85) return C.green;
+    if (v >= 75) return C.yellow;
+    return C.red;
+}
+
+function effBadge(v) {
+    const c = v >= 85 ? 'green' : v >= 75 ? 'yellow' : 'red';
+    return `<span class="badge badge--${c}">${v.toFixed?.(1) ?? v}%</span>`;
+}
+
+function fmt(n) { return (n ?? 0).toLocaleString(); }
+
+// Goal line plugin
+const goalPlugin = {
+    id: 'goalLine85',
+    afterDatasetsDraw(chart) {
+        const {ctx, scales: {y, x}} = chart;
+        if (!y || !x) return;
+        const yp = y.getPixelForValue(85);
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6,4]);
+        ctx.moveTo(x.left, yp);
+        ctx.lineTo(x.right, yp);
+        ctx.stroke();
+        ctx.fillStyle = '#f87171';
+        ctx.font = "600 11px 'JetBrains Mono'";
+        ctx.fillText('85% Goal', x.left + 6, yp - 6);
+        ctx.restore();
+    }
+};
+
+// ━━━━━━━━ TAB SWITCHING ━━━━━━━━
+document.getElementById('tabBar').addEventListener('click', e => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('pane-' + btn.dataset.tab).classList.add('active');
+});
+
+// ━━━━━━━━ PREPARE DATA (re-runnable for admin upload) ━━━━━━━━
+function prepareData() {
+    const am = Object.keys(allData.monthlyData).sort();
+    const mo = am.slice(-6);
+    const ml = mo.map(m => { const [y,x] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+x] + ' ' + y.slice(2); });
+    const ls = Object.entries(allData.lines).sort((a,b) => b[1].avg_eff - a[1].avg_eff);
+    const op = Object.entries(allData.operators).filter(([_,d]) => d.runs >= 5).sort((a,b) => b[1].avg_eff - a[1].avg_eff);
+    const dy = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+    const i1 = [], i2 = [];
+    dy.forEach(day => {
+        const wd = allData.weeklyData[day]; if (!wd) return; const ds = wd.date;
+        (wd.runs||[]).filter(r=>r.shift===1).forEach(r => { i1.push({label: day.substring(0,3)+' '+ds, ...r}); });
+        (wd.runs||[]).filter(r=>r.shift===2).forEach(r => { i2.push({label: day.substring(0,3)+' '+ds, ...r}); });
+    });
+    const dt = Object.entries(allData.skus).map(([s,d])=>({sku:s,lost:d.total_lost_mins,runs:d.runs})).filter(s=>s.lost>0).sort((a,b)=>b.lost-a.lost).slice(0,15);
+    return { months:mo, mLabels:ml, mEff:mo.map(m=>allData.monthlyData[m].avg_eff), mLost:mo.map(m=>allData.monthlyData[m].total_lost_mins), mRuns:mo.map(m=>allData.monthlyData[m].runs),
+             linesSorted:ls, lNames:ls.map(l=>l[0]), lEff:ls.map(l=>l[1].avg_eff), lRuns:ls.map(l=>l[1].runs),
+             ops:op, days:dy, dEff:dy.map(d=>allData.weeklyData[d]?.efficiency??0), dUnits:dy.map(d=>allData.weeklyData[d]?.units??0), dLabor:dy.map(d=>allData.weeklyData[d]?.labor??0),
+             indRuns1:i1, indRuns2:i2, dtSKUs:dt };
+}
+let _pd = prepareData();
+let months=_pd.months, mLabels=_pd.mLabels, mEff=_pd.mEff, mLost=_pd.mLost, mRuns=_pd.mRuns;
+let linesSorted=_pd.linesSorted, lNames=_pd.lNames, lEff=_pd.lEff, lRuns=_pd.lRuns;
+let ops=_pd.ops, days=_pd.days, dEff=_pd.dEff, dUnits=_pd.dUnits, dLabor=_pd.dLabor;
+let indRuns1=_pd.indRuns1, indRuns2=_pd.indRuns2, dtSKUs=_pd.dtSKUs;
+
+// ━━━━━━━━ INIT ━━━━━━━━
+document.addEventListener('DOMContentLoaded', () => {
+    function initDashboard() {
+        try {
+            buildCharts();
+            buildTables();
+            buildDropdowns();
+            buildRankings();
+            buildKPIs();
+            buildDowntimeInsights();
+            console.log('Dashboard initialized ✓');
+        } catch(err) {
+            console.error('Init error:', err);
+        }
+    }
+
+    // Try loading from Firebase first, fall back to embedded data
+    if (fbReady) {
+        loadFromFirebase().then(result => {
+            if (result && result.dashboardData) {
+                // Apply Firebase data
+                applyNewData(result.dashboardData);
+                // Restore the upload timestamp
+                if (result.uploadedAt) {
+                    const d = new Date(result.uploadedAt);
+                    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                    const hr = d.getHours(); const ampm = hr >= 12 ? 'PM' : 'AM';
+                    const h12 = hr % 12 || 12;
+                    const mm = String(d.getMinutes()).padStart(2,'0');
+                    const tag = document.getElementById('updatedTag');
+                    if (tag) tag.textContent = 'Updated ' + mo[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' ' + h12 + ':' + mm + ' ' + ampm;
+                }
+                console.log('Loaded persisted data from Firebase ✓');
+            } else {
+                initDashboard();
+            }
+        }).catch(() => {
+            initDashboard();
+        });
+    } else {
+        initDashboard();
+    }
+});
+
+// ━━━━━━━━ CHARTS ━━━━━━━━
+function buildCharts() {
+    // Re-prepare data from allData
+    const pd2 = prepareData();
+    months = pd2.months; mLabels = pd2.mLabels; mEff = pd2.mEff; mLost = pd2.mLost; mRuns = pd2.mRuns;
+    linesSorted = pd2.linesSorted; lNames = pd2.lNames; lEff = pd2.lEff; lRuns = pd2.lRuns;
+    ops = pd2.ops; days = pd2.days; dEff = pd2.dEff; dUnits = pd2.dUnits; dLabor = pd2.dLabor;
+    indRuns1 = pd2.indRuns1; indRuns2 = pd2.indRuns2; dtSKUs = pd2.dtSKUs;
+
+    // Monthly Efficiency
+    new Chart(document.getElementById('chMonthEff'), {
+        type: 'line',
+        data: {
+            labels: mLabels,
+            datasets: [{
+                data: mEff,
+                borderColor: C.blue,
+                backgroundColor: C.blue + '18',
+                tension: 0.35,
+                fill: true,
+                borderWidth: 2.5,
+                pointRadius: 4,
+                pointBackgroundColor: mEff.map(v => effColor(v)),
+                pointBorderColor: 'transparent'
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { min: 65, max: 95, ticks: { callback: v => v+'%' } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `Efficiency: ${ctx.parsed.y.toFixed(1)}% (${mRuns[ctx.dataIndex]} runs)`
+                    }
+                }
+            }
+        },
+        plugins: [goalPlugin]
+    });
+
+    // Monthly Lost Minutes (Last 6 Months)
+    new Chart(document.getElementById('chMonthLost'), {
+        type: 'bar',
+        data: {
+            labels: mLabels,
+            datasets: [{
+                data: mLost,
+                backgroundColor: mLost.map(v => v < 0 ? C.green : v > 6000 ? C.red : C.orange),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const idx = ctx.dataIndex;
+                            const total = mRuns[idx] * 480;
+                            const pct = total > 0 ? ((mLost[idx] / total) * 100).toFixed(1) : 0;
+                            return `${fmt(Math.round(mLost[idx]))} min lost (${pct}% of ${fmt(total)} avail)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Line Efficiency (horizontal)
+    new Chart(document.getElementById('chLineEff'), {
+        type: 'bar',
+        data: {
+            labels: lNames,
+            datasets: [{
+                data: lEff,
+                backgroundColor: lEff.map(v => effColor(v)),
+                borderRadius: 3
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false,
+            scales: { x: { min: 0, max: 110, ticks: { callback: v => v+'%' } } },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const line = allData.lines[lNames[ctx.dataIndex]];
+                            return `${ctx.parsed.x.toFixed(1)}% · ${line.runs} runs · ${fmt(line.total_output)} units`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Line Runs (horizontal)
+    new Chart(document.getElementById('chLineRuns'), {
+        type: 'bar',
+        data: {
+            labels: lNames,
+            datasets: [{
+                data: lRuns,
+                backgroundColor: C.purple + '80',
+                borderRadius: 3
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false
+        }
+    });
+
+    // Weekly Efficiency
+    new Chart(document.getElementById('chWeekEff'), {
+        type: 'bar',
+        data: {
+            labels: days.map(d => { const wd = allData.weeklyData[d]; return wd ? d.substring(0,3)+' '+wd.date : d.substring(0,3); }),
+            datasets: [{
+                data: dEff,
+                backgroundColor: dEff.map(v => effColor(v)),
+                borderRadius: 6
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: { y: { min: 55, max: 100, ticks: { callback: v => v+'%' } } }
+        },
+        plugins: [goalPlugin]
+    });
+
+    // Weekly Units
+    new Chart(document.getElementById('chWeekUnits'), {
+        type: 'bar',
+        data: {
+            labels: days.map(d => { const wd = allData.weeklyData[d]; return wd ? d.substring(0,3)+' '+wd.date : d.substring(0,3); }),
+            datasets: [{
+                data: dUnits,
+                backgroundColor: C.blue + '90',
+                borderRadius: 6
+            }]
+        },
+        options: { maintainAspectRatio: false }
+    });
+
+    // Weekly Labor
+    new Chart(document.getElementById('chWeekLabor'), {
+        type: 'bar',
+        data: {
+            labels: days.map(d => { const wd = allData.weeklyData[d]; return wd ? d.substring(0,3)+' '+wd.date : d.substring(0,3); }),
+            datasets: [{
+                data: dLabor,
+                backgroundColor: C.purple + '90',
+                borderRadius: 6
+            }]
+        },
+        options: { maintainAspectRatio: false }
+    });
+
+    // 1st Shift Individual Runs
+    function makeShiftChart(canvasId, runsArr, shiftLabel) {
+        new Chart(document.getElementById(canvasId), {
+            type: 'bar',
+            data: {
+                labels: runsArr.map(r => r.label),
+                datasets: [{
+                    data: runsArr.map(r => r.eff),
+                    backgroundColor: runsArr.map(r => effColor(r.eff)),
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 130, ticks: { callback: v => v+'%' } },
+                    x: { ticks: { maxRotation: 60, font: { size: 10 } } }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: ctx => {
+                                const r = runsArr[ctx[0].dataIndex];
+                                return r.sku + ' — ' + (r.line || '');
+                            },
+                            label: ctx => {
+                                const r = runsArr[ctx.dataIndex];
+                                return [`Efficiency: ${r.eff}%`, `Units: ${fmt(r.units)}`, `Shift: ${r.shiftLabel || shiftLabel}`];
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [goalPlugin]
+        });
+    }
+    makeShiftChart('chWeekRuns1', indRuns1, '1st (SL)');
+    makeShiftChart('chWeekRuns2', indRuns2, '2nd (TS)');
+
+    // Operators
+    new Chart(document.getElementById('chOps'), {
+        type: 'bar',
+        data: {
+            labels: ops.map(o => o[0]),
+            datasets: [{
+                data: ops.map(o => o[1].avg_eff),
+                backgroundColor: ops.map(o => effColor(o[1].avg_eff)),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false,
+            scales: { x: { min: 55, max: 100, ticks: { callback: v => v+'%' } } },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.x.toFixed(1)}% · ${ops[ctx.dataIndex][1].runs} runs`
+                    }
+                }
+            }
+        }
+    });
+
+    // Downtime chart (Insights tab)
+    new Chart(document.getElementById('chDowntime'), {
+        type: 'bar',
+        data: {
+            labels: dtSKUs.map(s => s.sku),
+            datasets: [{
+                data: dtSKUs.map(s => Math.round(s.lost)),
+                backgroundColor: dtSKUs.map(s => s.lost > 2000 ? C.red : s.lost > 1000 ? C.orange : C.yellow),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { maxRotation: 50, font: { size: 10 } } },
+                y: { title: { display: true, text: 'Lost Minutes' } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${fmt(ctx.parsed.y)} min lost (${dtSKUs[ctx.dataIndex].runs} runs)`
+                    }
+                }
+            }
+        }
+    });
+
+    // Manager downtime chart
+    new Chart(document.getElementById('chMgrDowntime'), {
+        type: 'bar',
+        data: {
+            labels: dtSKUs.slice(0,10).map(s => s.sku),
+            datasets: [{
+                data: dtSKUs.slice(0,10).map(s => Math.round(s.lost)),
+                backgroundColor: dtSKUs.slice(0,10).map(s => s.lost > 2000 ? C.red : s.lost > 1000 ? C.orange : C.yellow),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { maxRotation: 50, font: { size: 10 } } },
+                y: { title: { display: true, text: 'Lost Minutes' } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${fmt(ctx.parsed.y)} min (${dtSKUs[ctx.dataIndex].runs} runs)`
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ━━━━━━━━ TABLES ━━━━━━━━
+function buildTables() {
+    // Operators table
+    let h = '<thead><tr><th>#</th><th>Operator</th><th>Runs</th><th>Efficiency</th><th>vs Goal</th></tr></thead><tbody>';
+    ops.forEach(([name, d], i) => {
+        const gap = (d.avg_eff - 85).toFixed(1);
+        const cls = d.avg_eff >= 85 ? 'green' : d.avg_eff >= 75 ? 'yellow' : 'red';
+        h += `<tr><td>${i+1}</td><td><strong>${name}</strong></td><td>${d.runs}</td><td>${effBadge(d.avg_eff)}</td><td><span class="badge badge--${cls}">${gap > 0 ? '+' : ''}${gap}%</span></td></tr>`;
+    });
+    h += '</tbody>';
+    document.getElementById('tblOps').innerHTML = h;
+
+    // Weekly SKU table
+    const ws = allData.weeklySkus;
+    let wh = '<thead><tr><th>SKU</th><th>Runs</th><th>Units</th><th>Efficiency</th></tr></thead><tbody>';
+    Object.entries(ws).sort((a,b) => b[1].total_units - a[1].total_units).forEach(([sku, d]) => {
+        wh += `<tr><td><strong>${sku}</strong></td><td>${d.runs}</td><td>${fmt(d.total_units)}</td><td>${effBadge(d.avg_eff)}</td></tr>`;
+    });
+    wh += '</tbody>';
+    document.getElementById('tblWeeklySKU').innerHTML = wh;
+}
+
+// ━━━━━━━━ DROPDOWNS ━━━━━━━━
+function buildDropdowns() {
+    const skuSel = document.getElementById('selSKU');
+    Object.keys(allData.skus).sort().forEach(sku => {
+        const d = allData.skus[sku];
+        const o = document.createElement('option');
+        o.value = sku;
+        o.textContent = `${sku}  (${d.runs} runs · ${d.avg_eff}%)`;
+        skuSel.appendChild(o);
+    });
+
+    const lineSel = document.getElementById('selLine');
+    Object.keys(allData.lines).sort().forEach(line => {
+        const d = allData.lines[line];
+        const o = document.createElement('option');
+        o.value = line;
+        o.textContent = `${line}  (${d.runs} runs · ${d.avg_eff}%)`;
+        lineSel.appendChild(o);
+    });
+}
+
+// ━━━━━━━━ LOOKUP FUNCTIONS ━━━━━━━━
+function showSKU() {
+    const sku = document.getElementById('selSKU').value;
+    const el = document.getElementById('detailSKU');
+    if (!sku) { el.innerHTML = ''; return; }
+    const s = allData.skus[sku];
+    const gauge = Math.min(s.avg_eff, 100);
+    el.innerHTML = `
+        <div class="lookup-detail">
+            <h4>${sku}</h4>
+            <div class="eff-gauge"><div class="eff-gauge__fill" style="width:${gauge}%;background:${effColor(s.avg_eff)}"></div></div>
+            <div class="lookup-stats" style="margin-top:12px;">
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Efficiency</span><span class="lookup-stat__val" style="color:${effColor(s.avg_eff)}">${s.avg_eff}%</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Total Runs</span><span class="lookup-stat__val">${s.runs}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Eff Range</span><span class="lookup-stat__val">${s.min_eff}% – ${s.max_eff}%</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Total Output</span><span class="lookup-stat__val">${fmt(s.total_output)}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Output / Run</span><span class="lookup-stat__val">${fmt(Math.round(s.avg_output))}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Output Last 5 Shifts</span><span class="lookup-stat__val" style="color:${s.avg_output_last5 >= s.avg_output ? 'var(--accent-green)' : 'var(--accent-yellow)'}">${fmt(Math.round(s.avg_output_last5))}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Best Shift (Max Output)</span><span class="lookup-stat__val" style="color:var(--accent-green)">${fmt(s.max_output)}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Staffing</span><span class="lookup-stat__val">${s.avg_staffing} people</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Speed (UPM)</span><span class="lookup-stat__val">${s.avg_speed} upm</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Top Actual Speed</span><span class="lookup-stat__val" style="color:var(--accent-green)">${s.top_speed} upm</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Lost Minutes</span><span class="lookup-stat__val">${fmt(Math.round(s.total_lost_mins))}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Lost / Run</span><span class="lookup-stat__val">${(s.total_lost_mins / s.runs).toFixed(1)} min</span></div>
+            </div>
+        </div>
+    `;
+}
+
+function showLine() {
+    const line = document.getElementById('selLine').value;
+    const el = document.getElementById('detailLine');
+    if (!line) { el.innerHTML = ''; return; }
+    const l = allData.lines[line];
+    const gauge = Math.min(l.avg_eff, 100);
+    el.innerHTML = `
+        <div class="lookup-detail">
+            <h4>${line}</h4>
+            <div class="eff-gauge"><div class="eff-gauge__fill" style="width:${gauge}%;background:${effColor(l.avg_eff)}"></div></div>
+            <div class="lookup-stats" style="margin-top:12px;">
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Efficiency</span><span class="lookup-stat__val" style="color:${effColor(l.avg_eff)}">${l.avg_eff}%</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Total Runs</span><span class="lookup-stat__val">${l.runs}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Total Output</span><span class="lookup-stat__val">${fmt(l.total_output)}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Lost Minutes</span><span class="lookup-stat__val">${fmt(Math.round(l.total_lost_mins))}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Lost / Run</span><span class="lookup-stat__val">${(l.total_lost_mins / l.runs).toFixed(1)} min</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Units / Run</span><span class="lookup-stat__val">${fmt(Math.round(l.total_output / l.runs))}</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Actual Speed Range</span><span class="lookup-stat__val">${l.speed_min} – ${l.speed_max} upm</span></div>
+                <div class="lookup-stat"><span class="lookup-stat__label">Avg Actual Speed</span><span class="lookup-stat__val">${l.speed_avg} upm</span></div>
+            </div>
+        </div>
+    `;
+}
+
+// ━━━━━━━━ RANKINGS ━━━━━━━━
+function buildRankings() {
+    const qualified = Object.entries(allData.skus).filter(([_,d]) => d.runs >= 5);
+
+    // Top 15
+    const top15 = qualified.sort((a,b) => b[1].avg_eff - a[1].avg_eff).slice(0,15);
+    document.getElementById('listTop15').innerHTML = top15.map(([sku,d], i) => {
+        const medal = i < 3 ? ['🥇','🥈','🥉'][i] : '';
+        return `<div class="rank-item">
+            <div class="rank-item__left">
+                <div class="rank-item__pos">${medal || (i+1)}</div>
+                <div><div class="rank-item__name">${sku}</div><div class="rank-item__meta">${d.runs} runs · ${fmt(d.total_output)} units</div></div>
+            </div>
+            <div style="text-align:right;">
+                <div class="rank-item__value" style="color:${effColor(d.avg_eff)}">${d.avg_eff}%</div>
+                <div class="rank-item__sub">${d.min_eff}% – ${d.max_eff}%</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Bottom 15
+    const bot15 = [...qualified].sort((a,b) => a[1].avg_eff - b[1].avg_eff).slice(0,15);
+    document.getElementById('listBot15').innerHTML = bot15.map(([sku,d], i) => {
+        const gap = (85 - d.avg_eff).toFixed(1);
+        return `<div class="rank-item" style="flex-wrap:wrap;">
+            <div class="rank-item__left" style="flex:1;">
+                <div class="rank-item__pos">${i+1}</div>
+                <div><div class="rank-item__name">${sku}</div><div class="rank-item__meta">${d.runs} runs · ${fmt(Math.round(d.total_lost_mins))} min lost</div></div>
+            </div>
+            <div style="text-align:right;">
+                <div class="rank-item__value" style="color:${effColor(d.avg_eff)}">${d.avg_eff}%</div>
+                <div class="rank-item__sub">${d.min_eff}% – ${d.max_eff}%</div>
+            </div>
+            <div class="improve-bar improve-bar--red" style="width:100%; margin-top:6px;">⬆ ${gap}% improvement needed to reach 85% goal</div>
+        </div>`;
+    }).join('');
+
+    // Best Lines
+    const bestLines = Object.entries(allData.lines).sort((a,b) => b[1].avg_eff - a[1].avg_eff).slice(0,10);
+    document.getElementById('listBestLines').innerHTML = bestLines.map(([line,d], i) => {
+        const medal = i < 3 ? ['🥇','🥈','🥉'][i] : '';
+        return `<div class="rank-item">
+            <div class="rank-item__left">
+                <div class="rank-item__pos">${medal || (i+1)}</div>
+                <div><div class="rank-item__name">${line}</div><div class="rank-item__meta">${d.runs} runs · ${fmt(d.total_output)} units</div></div>
+            </div>
+            <div class="rank-item__value" style="color:${effColor(d.avg_eff)}">${d.avg_eff}%</div>
+        </div>`;
+    }).join('');
+
+    // Problem Lines
+    const probLines = Object.entries(allData.lines).filter(([_,d]) => d.avg_eff < 75).sort((a,b) => a[1].avg_eff - b[1].avg_eff);
+    const plEl = document.getElementById('listProbLines');
+    if (probLines.length === 0) {
+        plEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--accent-green);font-weight:600;">✅ All lines performing above 75%</div>';
+    } else {
+        plEl.innerHTML = probLines.map(([line,d]) => {
+            const gap = (75 - d.avg_eff).toFixed(1);
+            return `<div class="rank-item" style="flex-wrap:wrap;">
+                <div class="rank-item__left" style="flex:1;">
+                    <div class="rank-item__name">${line}</div>
+                    <div class="rank-item__meta">${d.runs} runs · ${fmt(Math.round(d.total_lost_mins))} min lost</div>
+                </div>
+                <div class="rank-item__value" style="color:var(--accent-red)">${d.avg_eff}%</div>
+                <div class="improve-bar improve-bar--yellow" style="width:100%; margin-top:6px;">⚠ ${gap}% below threshold — needs maintenance review</div>
+            </div>`;
+        }).join('');
+    }
+}
+
+
+// ━━━━━━━━ DOWNTIME INSIGHTS ━━━━━━━━
+function buildDowntimeInsights() {
+    const insights = allData.top3Insights || [];
+    if (!insights.length) return;
+    
+    const colors = [
+        {bg: 'rgba(248,113,113,0.08)', border: 'var(--accent-red)'},
+        {bg: 'rgba(251,191,36,0.08)', border: 'var(--accent-yellow)'},
+        {bg: 'rgba(251,146,60,0.08)', border: 'var(--accent-orange)'}
+    ];
+    
+    const actionMap = {
+        'chain timing/sync issues': {icon: '⚙️', action: 'Schedule preventive maintenance on chain drive and timing mechanisms. Check chain tension weekly and replace worn sprockets. Train operators on early detection of chain drift.'},
+        'film/photo eye/seal problems': {icon: '📷', action: 'Calibrate photo eye sensors at the start of each shift. Verify film roll alignment before each run. Have spare photo eye units ready to swap on failure. Review seal temperature and dwell time settings.'},
+        'material supply delays': {icon: '📦', action: 'Stage materials at least 30 minutes before scheduled run. Implement a kanban signal between warehouse and line. Coordinate with QA to pre-approve incoming materials to eliminate hold time.'},
+        'labeling/label quality issues': {icon: '🏷️', action: 'Inspect label rolls during receiving for wrinkles, adhesive defects, or misalignment. Adjust labeler tension and speed settings before each changeover. Keep spare label applicator heads on the floor.'},
+        'capper malfunction': {icon: '🔧', action: 'Add capper chuck inspection to the daily PM checklist. Stock spare capper clutch assemblies. Reduce torque variance by calibrating capper at shift start.'},
+        'printer/coder issues': {icon: '🖨️', action: 'Clean printhead nozzles every shift change. Keep backup ink cartridges at the line. Verify lot code settings during pre-run checklist before starting.'},
+        'weight/fill accuracy issues': {icon: '⚖️', action: 'Verify fill weights against target at line start and every 30 minutes. Recalibrate flow meters weekly. Adjust pump speed in smaller increments during runs to avoid overcorrection.'},
+        'conveyor jams/stoppages': {icon: '🔗', action: 'Clear conveyor transitions of debris at shift start. Check guide rail spacing matches container width. Adjust conveyor speed to match filler output and avoid bottle-necking at accumulation tables.'},
+        'multiple minor mechanical issues': {icon: '🛠️', action: 'Implement a 15-minute pre-shift inspection walk. Log all minor stoppages to identify patterns. Assign a line mechanic for quicker response during production.'}
+    };
+    
+    let h = '';
+    insights.forEach((insight, idx) => {
+        const c = colors[idx] || colors[2];
+        const skuData = allData.skus[insight.sku] || {};
+        const lostPerRun = insight.avg_lost_per_run;
+        const potentialSavings = Math.round(lostPerRun * 0.3 * insight.runs);
+        
+        h += '<div style="background:' + c.bg + '; border-left:4px solid ' + c.border + '; border-radius:8px; padding:20px; margin-bottom:16px;">';
+        h += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+        h += '<div style="font-weight:700; font-size:16px; font-family:JetBrains Mono,monospace;">#' + (idx+1) + ' ' + insight.sku + '</div>';
+        h += '<div style="font-family:JetBrains Mono,monospace; font-size:14px; color:var(--accent-red);">' + fmt(Math.round(insight.lost)) + ' min lost</div>';
+        h += '</div>';
+        
+        h += '<div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:14px; font-size:12px; color:var(--text-secondary);">';
+        h += '<div><strong style="color:var(--text-primary);">' + insight.runs + '</strong> runs</div>';
+        h += '<div>Avg Eff: <strong style="color:var(--text-primary);">' + insight.avg_eff + '%</strong></div>';
+        h += '<div>Lost/Run: <strong style="color:var(--text-primary);">' + lostPerRun + ' min</strong></div>';
+        h += '<div>Primary Line: <strong style="color:var(--text-primary);">' + insight.primary_line + '</strong></div>';
+        h += '</div>';
+        
+        h += '<div style="font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Root Causes & Action Items:</div>';
+        
+        insight.issues.forEach(issue => {
+            const a = actionMap[issue] || {icon: '📋', action: 'Investigate this recurring issue and document findings for the maintenance team.'};
+            h += '<div style="display:flex; gap:10px; margin-bottom:8px; font-size:13px; line-height:1.5; color:var(--text-secondary);">';
+            h += '<span>' + a.icon + '</span>';
+            h += '<div><strong style="color:var(--text-primary);">' + issue.charAt(0).toUpperCase() + issue.slice(1) + ':</strong> ' + a.action + '</div>';
+            h += '</div>';
+        });
+        
+        h += '<div style="margin-top:12px; padding:10px 14px; background:rgba(52,211,153,0.08); border-radius:6px; font-size:12px; color:var(--accent-green);">';
+        h += '💡 <strong>Potential Impact:</strong> Reducing lost time by 30% on this SKU alone would recover ~' + fmt(potentialSavings) + ' min (' + Math.round(potentialSavings/60) + ' hrs) over ' + insight.runs + ' runs.';
+        h += '</div>';
+        
+        h += '</div>';
+    });
+    
+    document.getElementById('insightsContent').innerHTML = h;
+}
+
+// ━━━━━━━━ KPIs ━━━━━━━━
+function buildKPIs() {
+    // Total lost
+    let totalLost = 0, totalRuns = 0, totalEff = 0, aboveGoal = 0;
+    Object.values(allData.skus).forEach(s => {
+        totalLost += s.total_lost_mins || 0;
+        totalRuns += s.runs || 0;
+        totalEff += (s.avg_eff || 0) * (s.runs || 0);
+        if (s.avg_eff >= 85) aboveGoal += s.runs;
+    });
+    const avgEff = totalRuns > 0 ? totalEff / totalRuns : 0;
+    const lostHrs = totalLost / 60;
+
+    const cm = allData.meta.currentMonth;
+    const cmLost = allData.meta.currentMonthLost;
+    const priorAvg = allData.meta.priorAvgLost;
+    document.getElementById('kpi-lost').textContent = fmt(Math.round(cmLost)) + ' min';
+    const trendEl = document.getElementById('kpi-lost-trend');
+    if (priorAvg > 0) {
+        const pctDiff = ((cmLost - priorAvg) / priorAvg * 100).toFixed(0);
+        const arrow = cmLost < priorAvg ? '↓' : '↑';
+        const cls = cmLost < priorAvg ? 'kpi__trend--up' : 'kpi__trend--down';
+        trendEl.className = 'kpi__trend ' + cls;
+        trendEl.textContent = arrow + ' ' + Math.abs(pctDiff) + '% vs 5-mo avg (' + fmt(Math.round(priorAvg)) + ' min)';
+    } else {
+        trendEl.className = 'kpi__trend kpi__trend--neutral';
+        trendEl.textContent = 'No prior data for trend';
+    }
+
+    const qualified = Object.values(allData.skus).filter(s => s.runs >= 5);
+    const exRate = qualified.length > 0 ? Math.round((qualified.filter(s => s.avg_eff >= 85).length / qualified.length) * 100) : 0;
+    document.getElementById('kpi-excellence').textContent = exRate + '%';
+
+    // Manager
+    document.getElementById('mgr-total').textContent = fmt(totalRuns);
+    document.getElementById('mgr-eff').textContent = avgEff.toFixed(1) + '%';
+    document.getElementById('mgr-goal').textContent = fmt(aboveGoal);
+    document.getElementById('mgr-lost').textContent = fmt(Math.round(lostHrs)) + 'h';
+}
+</script>
+    </div>
+</body>
+</html>
