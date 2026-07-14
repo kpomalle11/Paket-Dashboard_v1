@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paket Production Scheduler</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg: #0F1219; --bg-card: #171B26; --bg-elevated: #1E2330;
+            --border: #2A2F3E; --text-primary: #E8EAF0; --text-secondary: #A8ADBD;
+            --text-dim: #6B7080; --accent-blue: #4F8CFF; --accent-green: #34D399;
+            --accent-yellow: #FBBF24; --accent-red: #F87171; --accent-purple: #A78BFA;
+            --accent-orange: #FB923C; --accent-cyan: #22D3EE;
+            --radius-md: 12px; --radius-sm: 8px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background: var(--bg); color: var(--text-primary); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+        code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
+
+        /* Login */
+        #login-screen { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:1000; }
+        .login-box { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:40px; width:360px; }
+        .login-box h1 { font-size:20px; margin-bottom:6px; }
+        .login-box h1 span { color:var(--accent-blue); }
+        .login-box .sub { color:var(--text-dim); font-size:12px; margin-bottom:24px; }
+        .login-box input { width:100%; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; color:var(--text-primary); font-size:14px; margin-bottom:12px; }
+        .login-box input:focus { outline:none; border-color:var(--accent-blue); }
+        .login-btn { width:100%; background:var(--accent-blue); color:#fff; border:none; border-radius:var(--radius-sm); padding:11px; font-size:14px; font-weight:600; cursor:pointer; }
+        .login-btn:hover { opacity:.9; }
+        #login-error { color:var(--accent-red); font-size:12px; margin-top:10px; min-height:16px; }
+
+        /* Layout */
+        #app { display:none; padding:20px; max-width:1800px; margin:0 auto; }
+        .header { display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:16px 24px; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+        .header h1 { font-size:20px; }
+        .header h1 span { color:var(--accent-blue); }
+        .header .sub { color:var(--text-dim); font-size:12px; margin-top:2px; }
+        .header-right { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .btn { background:var(--bg-elevated); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; }
+        .btn:hover { border-color:var(--accent-blue); }
+        .btn--primary { background:var(--accent-blue); border-color:var(--accent-blue); color:#fff; }
+        .btn--green { background:var(--accent-green); border-color:var(--accent-green); color:#08281c; }
+        .btn--red { background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.3); color:var(--accent-red); }
+        .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+        /* Upload */
+        .upload-zone { border:2px dashed var(--border); border-radius:var(--radius-md); padding:34px 20px; text-align:center; cursor:pointer; background:var(--bg-card); transition:all .2s; margin-bottom:16px; }
+        .upload-zone:hover, .upload-zone.dragover { border-color:var(--accent-blue); background:rgba(79,140,255,.05); }
+        .upload-zone input { display:none; }
+        .upload-zone .icon { font-size:30px; margin-bottom:8px; }
+        .upload-zone strong { color:var(--accent-blue); }
+        .upload-status { padding:10px 16px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:16px; display:none; }
+        .upload-status.ok { display:block; background:rgba(52,211,153,.1); color:var(--accent-green); border:1px solid rgba(52,211,153,.25); }
+        .upload-status.err { display:block; background:rgba(248,113,113,.1); color:var(--accent-red); border:1px solid rgba(248,113,113,.25); }
+        .upload-status.busy { display:block; background:rgba(251,191,36,.1); color:var(--accent-yellow); border:1px solid rgba(251,191,36,.25); }
+
+        /* KPI strip */
+        .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+        .kpi { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 18px; border-top:2px solid var(--accent-blue); }
+        .kpi--red { border-top-color:var(--accent-red); } .kpi--green { border-top-color:var(--accent-green); }
+        .kpi--yellow { border-top-color:var(--accent-yellow); } .kpi--purple { border-top-color:var(--accent-purple); }
+        .kpi__label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); }
+        .kpi__value { font-size:24px; font-weight:700; font-family:'JetBrains Mono',monospace; margin-top:4px; }
+        .kpi__sub { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+
+        /* Toolbar */
+        .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+        .toolbar .spacer { flex:1; }
+        .legend { display:flex; gap:14px; font-size:11px; color:var(--text-secondary); flex-wrap:wrap; }
+        .legend span { display:flex; align-items:center; gap:5px; }
+        .legend i { width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+        /* Gantt */
+        .gantt-wrap { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); overflow:auto; margin-bottom:18px; max-height:72vh; }
+        .gantt { display:grid; min-width:900px; }
+        .g-head { position:sticky; top:0; z-index:20; background:var(--bg-elevated); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; padding:8px 4px; color:var(--text-secondary); }
+        .g-head.today { color:var(--accent-cyan); background:rgba(34,211,238,.08); }
+        .g-head.line-col { justify-content:flex-start; padding-left:14px; left:0; z-index:30; }
+        .g-line { position:sticky; left:0; z-index:10; background:var(--bg-elevated); border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 12px; font-size:12px; font-weight:600; display:flex; align-items:center; min-height:52px; }
+        .g-line .cap { color:var(--text-dim); font-size:10px; margin-left:6px; font-weight:400; }
+        .g-section { position:sticky; left:0; z-index:10; grid-column:1 / -1; background:linear-gradient(90deg, rgba(79,140,255,.12), transparent); border-bottom:1px solid var(--border); padding:7px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--accent-blue); }
+        .g-section.compound { background:linear-gradient(90deg, rgba(167,139,250,.12), transparent); color:var(--accent-purple); }
+        .g-cell { border-right:1px solid rgba(42,47,62,.5); border-bottom:1px solid var(--border); min-height:52px; padding:3px; position:relative; }
+        .g-cell.today { background:rgba(34,211,238,.04); }
+        .g-cell.dragover { background:rgba(79,140,255,.15); outline:2px dashed var(--accent-blue); outline-offset:-2px; }
+
+        /* Job blocks */
+        .job { border-radius:6px; padding:5px 8px; font-size:11px; cursor:grab; margin-bottom:3px; border-left:3px solid; position:relative; transition:transform .1s, box-shadow .1s; }
+        .job:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.4); z-index:5; }
+        .job:active { cursor:grabbing; }
+        .job.dragging { opacity:.4; }
+        .job .j-sku { font-weight:700; font-family:'JetBrains Mono',monospace; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .job .j-meta { color:rgba(255,255,255,.75); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .job .j-badge { position:absolute; top:3px; right:5px; font-size:9px; font-weight:700; }
+        .job--fill { background:rgba(79,140,255,.18); border-left-color:var(--accent-blue); }
+        .job--compound { background:rgba(167,139,250,.18); border-left-color:var(--accent-purple); }
+        .job--pastdue { background:rgba(248,113,113,.2); border-left-color:var(--accent-red); }
+        .job--asap { background:rgba(251,146,60,.2); border-left-color:var(--accent-orange); }
+        .job--locked { outline:1px solid rgba(52,211,153,.5); }
+        .job--cont { opacity:.62; border-left-style:dashed; }
+
+        /* Backlog */
+        .backlog-wrap { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; margin-bottom:18px; }
+        .backlog-wrap h3 { font-size:14px; margin-bottom:4px; }
+        .backlog-wrap .sub { color:var(--text-dim); font-size:12px; margin-bottom:12px; }
+        .backlog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:8px; }
+        .bl-job { background:var(--bg-elevated); border:1px solid var(--border); border-left:3px solid var(--accent-yellow); border-radius:6px; padding:8px 10px; font-size:11px; cursor:grab; }
+        .bl-job:hover { border-color:var(--accent-blue); }
+        .bl-job .j-sku { font-weight:700; font-family:'JetBrains Mono',monospace; }
+        .bl-job .j-meta { color:var(--text-secondary); font-size:10px; margin-top:2px; }
+        .bl-job .status-pill { display:inline-block; padding:1px 7px; border-radius:8px; font-size:9px; font-weight:700; margin-top:4px; }
+        .pill-subc { background:rgba(251,191,36,.15); color:var(--accent-yellow); }
+        .pill-micro { background:rgba(34,211,238,.15); color:var(--accent-cyan); }
+        .pill-hold { background:rgba(248,113,113,.15); color:var(--accent-red); }
+        .pill-pending { background:rgba(167,139,250,.15); color:var(--accent-purple); }
+        .pill-ready { background:rgba(52,211,153,.15); color:var(--accent-green); }
+        .pill-running { background:rgba(79,140,255,.15); color:var(--accent-blue); }
+
+        /* Modal */
+        #modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:500; }
+        .modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:26px; width:480px; max-width:94vw; max-height:88vh; overflow:auto; }
+        .modal-box h3 { font-size:16px; margin-bottom:2px; font-family:'JetBrains Mono',monospace; }
+        .modal-box .m-cust { color:var(--text-secondary); font-size:12px; margin-bottom:16px; }
+        .m-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .m-field label { display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+        .m-field select, .m-field input { width:100%; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; color:var(--text-primary); font-size:13px; }
+        .m-stats { background:var(--bg-elevated); border-radius:var(--radius-sm); padding:12px 14px; margin:12px 0; font-size:12px; line-height:1.9; color:var(--text-secondary); }
+        .m-stats strong { color:var(--text-primary); }
+        .m-actions { display:flex; gap:10px; margin-top:16px; }
+        .m-actions .btn { flex:1; }
+        .rec-box { background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.2); border-radius:var(--radius-sm); padding:10px 14px; margin-top:8px; font-size:12px; color:var(--accent-green); }
+
+        .fb-badge { padding:3px 10px; border-radius:10px; font-size:10px; font-weight:700; }
+        .fb-on { background:rgba(52,211,153,.15); color:var(--accent-green); }
+        .fb-off { background:rgba(251,191,36,.15); color:var(--accent-yellow); }
+        @media print {
+            body { background:#fff; color:#000; }
+            .header-right, .upload-zone, .toolbar, .backlog-wrap { display:none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h1><span>PAKET</span> Production Scheduler</h1>
+        <div class="sub">Gantt scheduling · Open Order planning · Compounding</div>
+        <input type="text" id="login-user" placeholder="Username" autocomplete="off">
+        <input type="password" id="login-pass" placeholder="Password">
+        <button class="login-btn" onclick="attemptLogin()">Sign In</button>
+        <div id="login-error"></div>
+    </div>
+</div>
+
+<div id="app">
+    <div class="header">
+        <div>
+            <h1><span>PAKET</span> Production Scheduler</h1>
+            <div class="sub" id="headerSub">Upload an Open Order Status Report to begin</div>
+        </div>
+        <div class="header-right">
+            <span class="fb-badge fb-off" id="fbBadge">FIREBASE: OFFLINE</span>
+            <button class="btn" onclick="loadSavedSchedule(true)">↺ Load Saved</button>
+            <button class="btn btn--green" onclick="saveSchedule()">💾 Save Schedule</button>
+            <button class="btn" onclick="window.print()">🖨 Print</button>
+            <button class="btn btn--red" onclick="doLogout()">↩ Logout</button>
+        </div>
+    </div>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📋</div>
+        <div><strong>Click to upload</strong> or drag &amp; drop your Open Order Status Report (.xlsx)</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:5px;">The tool reads order status, due dates, machines &amp; quantities, then drafts a schedule automatically</div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleUpload(this.files[0])">
+    </div>
+    <div class="upload-status" id="uploadStatus"></div>
+
+    <div class="kpis" id="kpiStrip" style="display:none;">
+        <div class="kpi kpi--red"><div class="kpi__label">Past Due Orders</div><div class="kpi__value" id="kPast">0</div><div class="kpi__sub" id="kPastSub">—</div></div>
+        <div class="kpi kpi--green"><div class="kpi__label">Ready to Run</div><div class="kpi__value" id="kReady">0</div><div class="kpi__sub">schedulable now</div></div>
+        <div class="kpi kpi--yellow"><div class="kpi__label">Waiting on Sub-C</div><div class="kpi__value" id="kWait">0</div><div class="kpi__sub">in backlog</div></div>
+        <div class="kpi kpi--purple"><div class="kpi__label">Compounding Jobs</div><div class="kpi__value" id="kComp">0</div><div class="kpi__sub">tanks & blenders</div></div>
+        <div class="kpi"><div class="kpi__label">Scheduled Shifts</div><div class="kpi__value" id="kShifts">0</div><div class="kpi__sub" id="kShiftsSub">next 3 weeks</div></div>
+    </div>
+
+    <div class="toolbar" id="toolbar" style="display:none;">
+        <button class="btn btn--primary" onclick="autoSchedule(); renderAll();">⚡ Auto-Draft Schedule</button>
+        <button class="btn" onclick="clearBoard()">✕ Clear Board</button>
+        <div class="spacer"></div>
+        <div class="legend">
+            <span><i style="background:var(--accent-red)"></i> Past Due</span>
+            <span><i style="background:var(--accent-orange)"></i> ASAP</span>
+            <span><i style="background:var(--accent-blue)"></i> Fill Job</span>
+            <span><i style="background:var(--accent-purple)"></i> Compound</span>
+            <span><i style="background:var(--accent-green)"></i> 🔒 Locked</span>
+        </div>
+    </div>
+
+    <div class="gantt-wrap" id="ganttWrap" style="display:none;">
+        <div class="gantt" id="gantt"></div>
+    </div>
+
+    <div class="backlog-wrap" id="backlogWrap" style="display:none;">
+        <h3>📥 Backlog — Not Yet Scheduled</h3>
+        <div class="sub">Waiting on Sub-C, Micro, Hold &amp; unplaced jobs. Drag onto the board to schedule anyway, or click for details.</div>
+        <div class="backlog-grid" id="backlogGrid"></div>
+    </div>
+</div>
+
+<div id="modal" onclick="if(event.target===this) closeModal()">
+    <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+// ━━━━━━━━ FIREBASE ━━━━━━━━
+const firebaseConfig = {
+    apiKey: "AIzaSyC-Xtlv__mvx-AEk8Zu9otkEFWYOF_mhbg",
+    authDomain: "paket-production-dashboard-v1.firebaseapp.com",
+    databaseURL: "https://paket-production-dashboard-v1-default-rtdb.firebaseio.com",
+    projectId: "paket-production-dashboard-v1",
+    storageBucket: "paket-production-dashboard-v1.firebasestorage.app",
+    messagingSenderId: "869201529522",
+    appId: "1:869201529522:web:3e9735a188236410f0d7ab",
+    measurementId: "G-1CETQ69TZ8"
+};
+let fbDb = null, fbReady = false;
+function tryInitFirebase() {
+    if (fbReady) return true;
+    if (typeof firebase === 'undefined') return false;
+    try {
+        if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(firebaseConfig);
+        fbDb = firebase.database();
+        fbReady = true;
+        return true;
+    } catch(e) { console.warn('Firebase init failed:', e.message); return false; }
+}
+function loadFallbackSDK() {
+    console.warn('Primary Firebase CDN unavailable — trying fallback (gstatic)...');
+    const s1 = document.createElement('script');
+    s1.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
+    s1.onload = () => {
+        const s2 = document.createElement('script');
+        s2.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js';
+        s2.onload = () => { if (tryInitFirebase()) onFirebaseReadyLate(); };
+        s2.onerror = () => console.warn('Both Firebase CDNs unreachable — offline mode');
+        document.head.appendChild(s2);
+    };
+    s1.onerror = () => console.warn('Both Firebase CDNs unreachable — offline mode');
+    document.head.appendChild(s1);
+}
+function onFirebaseReadyLate() {
+    const b = document.getElementById('fbBadge');
+    if (b) { b.className = 'fb-badge fb-on'; b.textContent = 'FIREBASE: CONNECTED'; }
+    refreshFirebaseData();
+    if (!jobs.length) loadSavedSchedule(false);
+}
+if (!tryInitFirebase() && typeof firebase === 'undefined') loadFallbackSDK();
+
+// ━━━━━━━━ LOGIN ━━━━━━━━
+function attemptLogin() {
+    const u = document.getElementById('login-user').value;
+    const p = document.getElementById('login-pass').value;
+    if ((u === 'Paket' && p === 'Paket2026!') || (u === 'Admin' && p === 'Kevin2829!')) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        initApp();
+    } else {
+        document.getElementById('login-error').textContent = 'Invalid credentials. Please try again.';
+    }
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') attemptLogin();
+});
+function doLogout() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+}
+
+// ━━━━━━━━ RESOURCES ━━━━━━━━
+const PROD_LINES = ['ELGIN I','ELGIN II','KALIX I','KALIX II','BTL I','BTL II','PP 1','PP 2','PP 3','B1','B2','B4','B6','REB','PSG','KENTEX','500','SAGA','WHITE BROWN','SECONDARY'];
+const COMP_TANKS = ['T1','T2','T5','T6','T7','T8','T9','T10','SMALL RIBBON BLENDER','LARGE RIBBON BLENDER'];
+const SHIFTS_PER_DAY = 2; // max shifts per line per day
+
+// Machine → candidate lines mapping
+const MACHINE_MAP = {
+    'ELGIN': ['ELGIN I','ELGIN II'], 'RLGIN': ['ELGIN I','ELGIN II'],
+    'BARTELT': ['BTL I','BTL II'], 'BARTELT 6': ['BTL I','BTL II'], 'BTL': ['BTL I','BTL II'],
+    'KALIX': ['KALIX I','KALIX II'],
+    'PSG': ['PSG'], 'REB': ['REB'], 'KENTEX': ['KENTEX'], '500': ['500'], 'SAGA': ['SAGA'],
+    'BROWN': ['WHITE BROWN'], 'WHITE BROWN': ['WHITE BROWN'], 'LAB': ['SECONDARY'],
+    'PP': ['PP 1','PP 2','PP 3'],
+    'COMPOUND': COMP_TANKS.slice(0,8),
+    'RIBBON BLENDER': ['SMALL RIBBON BLENDER','LARGE RIBBON BLENDER'],
+};
+
+// ━━━━━━━━ SKU STATS (embedded fallback; refreshed from Firebase) ━━━━━━━━
+let skuStats = {"ALLINT-01": {"avg5": 24926.0, "med5": 32800.0, "staff": 2.7, "eff": 93.1}, "ARMPUM-02": {"avg5": 4875.0, "med5": 4875.0, "staff": 3.0, "eff": 39.9}, "ATLPUT-02": {"avg5": 10864.0, "med5": 12018.0, "staff": 2.6, "eff": 84.0}, "AUNFAN-02V2": {"avg5": 4675.0, "med5": 4896.0, "staff": 6.0, "eff": 78.4}, "AUNFAN-1V1": {"avg5": 5426.0, "med5": 5346.0, "staff": 6.0, "eff": 86.0}, "BOOGIE-01": {"avg5": 7091.0, "med5": 8598.0, "staff": 6.0, "eff": 80.1}, "BOOGIE-02": {"avg5": 9072.0, "med5": 8280.0, "staff": 3.0, "eff": 86.7}, "BOOGIE-03": {"avg5": 3906.0, "med5": 4380.0, "staff": 5.7, "eff": 76.1}, "BOOGIE-3": {"avg5": 7524.0, "med5": 7524.0, "staff": 6.0, "eff": 82.0}, "BRULIN-01": {"avg5": 6400.0, "med5": 7232.0, "staff": 3.0, "eff": 84.7}, "CHIGEL-04": {"avg5": 13275.0, "med5": 13275.0, "staff": 2.0, "eff": 83.6}, "CHIGEL-05": {"avg5": 13118.0, "med5": 13000.0, "staff": 2.0, "eff": 81.5}, "CHIGEL-07": {"avg5": 18053.0, "med5": 18000.0, "staff": 2.0, "eff": 98.6}, "COSTEC-09B": {"avg5": 5100.0, "med5": 5100.0, "staff": 2.0, "eff": 80.0}, "COSTEC-27": {"avg5": 8120.0, "med5": 8120.0, "staff": 2.0, "eff": 79.6}, "COSTEC-30V2": {"avg5": 4595.0, "med5": 4595.0, "staff": 2.0, "eff": 90.4}, "COSTEC-31": {"avg5": 5500.0, "med5": 5500.0, "staff": 2.0, "eff": 71.9}, "COSTEC-31B": {"avg5": 4250.0, "med5": 4250.0, "staff": 2.0, "eff": 83.3}, "COSTEC-46V2": {"avg5": 8300.0, "med5": 8300.0, "staff": 2.0, "eff": 81.4}, "DAPBAB-01V1": {"avg5": 21490.0, "med5": 19250.0, "staff": 2.0, "eff": 91.8}, "DAPBAB-04IPV2": {"avg5": 2944.0, "med5": 2424.0, "staff": 5.8, "eff": 77.9}, "DAPBAB-04V2": {"avg5": 2258.0, "med5": 2184.0, "staff": 3.9, "eff": 83.3}, "DAPBAB-05": {"avg5": 3058.0, "med5": 2758.0, "staff": 6.1, "eff": 70.8}, "DAPBAB-09V1": {"avg5": 8298.0, "med5": 8376.0, "staff": 7.3, "eff": 78.2}, "DAPBAB-0V2": {"avg5": 2730.0, "med5": 2216.0, "staff": 3.8, "eff": 76.3}, "DAPBAB-11V1": {"avg5": 6268.0, "med5": 5232.0, "staff": 7.3, "eff": 77.6}, "DAPBAB-17V1": {"avg5": 5556.0, "med5": 5556.0, "staff": 7.0, "eff": 41.0}, "DAPBAB-18": {"avg5": 3199.0, "med5": 3594.0, "staff": 7.6, "eff": 70.7}, "DAPBAB-20": {"avg5": 2240.0, "med5": 1728.0, "staff": 6.9, "eff": 67.7}, "DAPBAB-21": {"avg5": 3809.0, "med5": 4492.0, "staff": 6.4, "eff": 63.3}, "DAPBAB-25": {"avg5": 2008.0, "med5": 1040.0, "staff": 4.2, "eff": 84.2}, "DAPBAB-26": {"avg5": 1035.0, "med5": 596.0, "staff": 4.3, "eff": 72.1}, "DAPBAB-28": {"avg5": 1500.0, "med5": 1500.0, "staff": 3.0, "eff": 48.6}, "DUKCAN-01V1": {"avg5": 10478.0, "med5": 9864.0, "staff": 7.6, "eff": 91.8}, "DUKCAN-02V1": {"avg5": 4643.0, "med5": 5118.0, "staff": 7.4, "eff": 85.6}, "DUKCAN-02V2": {"avg5": 7532.0, "med5": 7532.0, "staff": 8.0, "eff": 84.3}, "DUKCAN-04": {"avg5": 14672.0, "med5": 17112.0, "staff": 5.8, "eff": 86.0}, "DUKCAN-04V1": {"avg5": 8580.0, "med5": 8654.0, "staff": 6.0, "eff": 91.1}, "DUKCAN-05": {"avg5": 4168.0, "med5": 4110.0, "staff": 7.7, "eff": 80.8}, "DUKCAN-05V1": {"avg5": 9278.0, "med5": 10602.0, "staff": 7.9, "eff": 91.5}, "DUKCAN-06V1": {"avg5": 7390.0, "med5": 8504.0, "staff": 8.0, "eff": 79.4}, "DUKCAN-07": {"avg5": 9345.0, "med5": 7452.0, "staff": 5.8, "eff": 72.4}, "DUKCAN-07V1": {"avg5": 10442.0, "med5": 12566.0, "staff": 6.0, "eff": 70.6}, "DUKCAN-08": {"avg5": 4362.0, "med5": 4362.0, "staff": 8.0, "eff": 77.8}, "DUKCAN-08V1": {"avg5": 3421.0, "med5": 3242.0, "staff": 7.5, "eff": 76.9}, "DUKCAN-10": {"avg5": 9733.0, "med5": 7500.0, "staff": 5.9, "eff": 85.5}, "DUKCAN-10V1": {"avg5": 10664.0, "med5": 8140.0, "staff": 5.8, "eff": 85.1}, "DUKCAN-11": {"avg5": 10283.0, "med5": 10686.0, "staff": 7.6, "eff": 82.8}, "DUKCAN-12": {"avg5": 8665.0, "med5": 9475.0, "staff": 5.6, "eff": 67.0}, "DUKCAN-13": {"avg5": 12876.0, "med5": 12876.0, "staff": 6.0, "eff": 96.3}, "DUKCAN-14": {"avg5": 9161.0, "med5": 10530.0, "staff": 7.2, "eff": 83.3}, "DUKCAN-15": {"avg5": 6368.0, "med5": 6444.0, "staff": 8.0, "eff": 69.5}, "DUKCAN-16": {"avg5": 15002.0, "med5": 16875.0, "staff": 2.2, "eff": 90.4}, "DUKCAN-17": {"avg5": 5447.0, "med5": 6205.0, "staff": 6.2, "eff": 63.8}, "DUKCAN-18": {"avg5": 8002.0, "med5": 8436.0, "staff": 5.6, "eff": 69.0}, "DUKCAN-19": {"avg5": 8230.0, "med5": 8106.0, "staff": 5.8, "eff": 69.0}, "DUKCAN-20": {"avg5": 6917.0, "med5": 8472.0, "staff": 7.9, "eff": 78.1}, "ENZSOL-01": {"avg5": 14000.0, "med5": 12200.0, "staff": 2.8, "eff": 88.5}, "ENZSOL-02": {"avg5": 19584.0, "med5": 20672.0, "staff": 3.1, "eff": 87.6}, "FUCHSL-01V1": {"avg5": 8747.0, "med5": 9180.0, "staff": 3.0, "eff": 77.9}, "FUCHSL-05": {"avg5": 2310.0, "med5": 2310.0, "staff": 3.0, "eff": 27.2}, "FUCHSL-06": {"avg5": 874.0, "med5": 660.0, "staff": 4.9, "eff": 58.2}, "FUCHSL-07": {"avg5": 1961.0, "med5": 2232.0, "staff": 4.0, "eff": 70.4}, "FUCHSL-10": {"avg5": 5688.0, "med5": 5688.0, "staff": 4.0, "eff": 76.2}, "FUCHSL-11": {"avg5": 4747.0, "med5": 4344.0, "staff": 3.3, "eff": 47.1}, "JRWATK-11": {"avg5": 1282.0, "med5": 1428.0, "staff": 4.8, "eff": 73.0}, "JRWATK-11V1": {"avg5": 2455.0, "med5": 1980.0, "staff": 4.8, "eff": 77.8}, "JRWATK-21V1": {"avg5": 3036.0, "med5": 3540.0, "staff": 5.5, "eff": 76.2}, "MSEGRO-06": {"avg5": 5286.0, "med5": 5286.0, "staff": 6.0, "eff": 47.3}, "ODEBEA-02": {"avg5": 5902.0, "med5": 6444.0, "staff": 5.6, "eff": 53.1}, "OKECOM-01": {"avg5": 5545.0, "med5": 5952.0, "staff": 7.6, "eff": 71.7}, "OKECOM-03": {"avg5": 9257.0, "med5": 9600.0, "staff": 7.7, "eff": 74.4}, "OKECOM-04": {"avg5": 5696.0, "med5": 5696.0, "staff": 7.0, "eff": 65.7}, "OKECOM-05": {"avg5": 6628.0, "med5": 7992.0, "staff": 8.7, "eff": 77.9}, "OKECOM-06": {"avg5": 4970.0, "med5": 4884.0, "staff": 7.8, "eff": 73.6}, "OKECOM-07": {"avg5": 6468.0, "med5": 5544.0, "staff": 7.0, "eff": 73.1}, "OKECOM-08": {"avg5": 7676.0, "med5": 9336.0, "staff": 6.7, "eff": 77.8}, "OKECOM-10": {"avg5": 5992.0, "med5": 6348.0, "staff": 8.0, "eff": 84.9}, "OKECOM-11": {"avg5": 3555.0, "med5": 4222.0, "staff": 8.3, "eff": 74.5}, "OKECOM-PILOT-08": {"avg5": 1152.0, "med5": 1152.0, "staff": 7.0, "eff": 49.6}, "PACTEC-01G": {"avg5": 2376.0, "med5": 2250.0, "staff": 3.0, "eff": 76.6}, "PACTEC-02-FLA": {"avg5": 1200.0, "med5": 1200.0, "staff": 2.0, "eff": 78.8}, "PACTEC-02FLAT": {"avg5": 1728.0, "med5": 2040.0, "staff": 2.6, "eff": 97.0}, "PACTEC-03-FLAT": {"avg5": 1277.0, "med5": 1204.0, "staff": 3.0, "eff": 79.5}, "PACTEC-05G": {"avg5": 864.0, "med5": 693.0, "staff": 2.0, "eff": 35.0}, "PACTEC-06G": {"avg5": 864.0, "med5": 706.0, "staff": 1.9, "eff": 33.4}, "PACTEC-07G": {"avg5": 480.0, "med5": 462.0, "staff": 1.8, "eff": 14.6}, "PURPRO-01": {"avg5": 3705.0, "med5": 3161.0, "staff": 2.4, "eff": 60.0}, "RAWSUG-01": {"avg5": 11560.0, "med5": 13800.0, "staff": 2.0, "eff": 77.9}, "RAWSUG-02": {"avg5": 13841.0, "med5": 16800.0, "staff": 2.0, "eff": 93.6}, "SYNTEC-03": {"avg5": 2325.0, "med5": 2325.0, "staff": 3.0, "eff": 79.6}, "TRIPRO-01V1": {"avg5": 12600.0, "med5": 12300.0, "staff": 3.0, "eff": 83.3}, "TRUFRE-01": {"avg5": 11880.0, "med5": 13900.0, "staff": 3.0, "eff": 69.9}, "TRUFRE-01V1": {"avg5": 11600.0, "med5": 11600.0, "staff": 3.0, "eff": 87.1}, "TRUFRE-04": {"avg5": 7400.0, "med5": 7100.0, "staff": 2.2, "eff": 87.2}, "TRUFRE-05": {"avg5": 7920.0, "med5": 8400.0, "staff": 2.1, "eff": 90.3}, "TRUFRE-06": {"avg5": 9560.0, "med5": 10500.0, "staff": 2.0, "eff": 93.9}, "TRUFRE-08": {"avg5": 7700.0, "med5": 6100.0, "staff": 2.1, "eff": 83.2}, "TRUFRE-09": {"avg5": 6420.0, "med5": 9600.0, "staff": 2.1, "eff": 84.1}, "TRUFRE-11": {"avg5": 5700.0, "med5": 4000.0, "staff": 29.3, "eff": 81.9}, "TRUFRE-12": {"avg5": 5878.0, "med5": 7400.0, "staff": 3.0, "eff": 58.7}, "TRUFRE-13": {"avg5": 7500.0, "med5": 6300.0, "staff": 2.0, "eff": 84.6}, "TRUFRE-14": {"avg5": 7840.0, "med5": 7500.0, "staff": 2.0, "eff": 90.6}, "TRUFRE-15": {"avg5": 8285.0, "med5": 5246.0, "staff": 5.7, "eff": 82.8}, "TRUFRE-16": {"avg5": 1785.0, "med5": 1785.0, "staff": 3.0, "eff": 83.1}, "TRUFRE-17": {"avg5": 1976.0, "med5": 2320.0, "staff": 2.3, "eff": 67.5}, "TRUFRE-18": {"avg5": 1168.0, "med5": 760.0, "staff": 2.1, "eff": 47.6}, "TRUFRE-19": {"avg5": 4200.0, "med5": 4200.0, "staff": 2.0, "eff": 87.4}, "TRUFRE-20": {"avg5": 920.0, "med5": 920.0, "staff": 2.5, "eff": 64.4}, "TRUFRE-22": {"avg5": 7567.0, "med5": 8200.0, "staff": 2.0, "eff": 96.3}, "TRUFRE0-05": {"avg5": 7800.0, "med5": 7800.0, "staff": 2.0, "eff": 98.7}, "WATINC-01-100": {"avg5": 7525.0, "med5": 8750.0, "staff": 3.0, "eff": 83.4}};
+// Recent run history per SKU (last 5 runs: efficiency %, downtime note, date, line) — refreshed from Firebase
+let recentRuns = {"TRUFRE-01": [{"e": 67.5, "t": "The Pulley on the hopper stopped working", "d": "2026-02-04", "l": "B6"}, {"e": 87.0, "t": "", "d": "2026-02-04", "l": "B6"}, {"e": 82.1, "t": "We had issues with material , we had to swich super sack , monor issues , and waiting for material to be approved . ", "d": "2026-02-05", "l": "B6"}, {"e": 74.3, "t": "Ran out all the material, issues with one clip ", "d": "2026-02-06", "l": "B6"}, {"e": 36.6, "t": "Issues with the main filler, problems with the timimg", "d": "2026-02-13", "l": "B6"}], "DAPBAB-11V1": [{"e": 75.7, "t": "", "d": "2025-01-13", "l": "REB"}, {"e": 59.9, "t": "", "d": "2025-01-13", "l": "REB"}, {"e": 78.9, "t": "The nozzle on the right, was constantly leaking", "d": "2025-05-01", "l": "ELGIN II"}, {"e": 98.0, "t": "The nozzle on the right, was constantly leaking. We call Julio to fix it . ", "d": "2025-05-02", "l": "ELGIN II"}, {"e": 70.6, "t": "ran the line with only 7 people instead of 8 people", "d": "2025-05-30", "l": "ELGIN II"}], "FUCHSL-01V1": [{"e": 69.2, "t": "We had a problems with the water chiller,not working we call Chris.", "d": "2025-07-15", "l": "KENTEX"}, {"e": 76.3, "t": "no issues.", "d": "2025-07-16", "l": "KENTEX"}, {"e": 86.1, "t": "cooling machine wasn't working-had to change the barrels of material 8", "d": "2025-07-17", "l": "KENTEX"}, {"e": 80.7, "t": "couldn't find the #6 for the julian date.stopped because of different tubes,", "d": "2025-07-18", "l": "KENTEX"}, {"e": 68.8, "t": "issues with cooling machine-stopped machine and moved to ELGIN I", "d": "2025-07-21", "l": "KENTEX"}], "DAPBAB-04V2": [{"e": 55.0, "t": "", "d": "2026-01-08", "l": "PSG"}, {"e": 96.5, "t": "No issues ", "d": "2026-01-09", "l": "PSG"}, {"e": 98.5, "t": "Ran out all material.", "d": "2026-01-17", "l": "PSG"}, {"e": 75.1, "t": "", "d": "2026-01-18", "l": "PSG"}, {"e": 106.3, "t": "", "d": "2026-01-19", "l": "PSG"}], "OKECOM-01": [{"e": 56.2, "t": "had to wait for material to be brought to the line. Ran the machine with only 7ppl", "d": "2025-07-28", "l": "REB"}, {"e": 45.6, "t": "", "d": "2025-08-01", "l": "REB"}, {"e": 72.9, "t": "", "d": "2025-08-04", "l": "REB"}, {"e": 45.6, "t": "Ran the machine with 7 people", "d": "2025-08-05", "l": "REB"}, {"e": 78.0, "t": "", "d": "2025-08-05", "l": "REB"}], "DUKCAN-08V1": [{"e": 71.9, "t": "", "d": "2025-06-25", "l": "ELGIN I"}, {"e": 72.9, "t": "", "d": "2026-01-23", "l": "ELGIN I"}, {"e": 58.5, "t": "", "d": "2026-01-23", "l": "ELGIN I"}, {"e": 75.7, "t": "", "d": "2026-02-13", "l": "ELGIN I"}, {"e": 64.1, "t": "issues with the labler", "d": "2026-02-13", "l": "ELGIN I"}], "DAPBAB-26": [{"e": 88.9, "t": "Ran out all the Material", "d": "2025-10-22", "l": "PSG"}, {"e": 80.4, "t": "", "d": "2025-12-30", "l": "PSG"}, {"e": 72.2, "t": "", "d": "2025-12-31", "l": "PSG"}, {"e": 48.4, "t": "We had issues with bags came open not sealing we had to call Christ . Also we had stop the line at 12:00 pm to go run the REB for OKECOM-PIL", "d": "2026-01-05", "l": "PSG"}, {"e": 49.9, "t": "We started to had issues with bags came open we call Chris. Finish the P.O# Order we are to swich over to DAPBAB-04V2", "d": "2026-01-06", "l": "PSG"}], "TRUFRE-14": [{"e": 7.8, "t": "We started to have issues with left nozzle , material was coming out of the nozzle I have to shut down the line. ", "d": "2025-12-31", "l": "B1"}, {"e": 86.0, "t": "We had issues with left nozzle , with knife, and also from 11:00 am-11:55 AM Patty has to do some  adjutment to the line .", "d": "2026-01-05", "l": "B1"}, {"e": 108.9, "t": "", "d": "2026-01-06", "l": "B1"}, {"e": 89.1, "t": "Had issues with the photo eye after chainging the film", "d": "2026-01-06", "l": "B1"}, {"e": 104.6, "t": "No issues", "d": "2026-01-07", "l": "B1"}], "OKECOM-PILOT-08": [{"e": 49.6, "t": "", "d": "2025-01-05", "l": "REB"}], "OKECOM-06": [{"e": 53.9, "t": "HAD ISSUES WITH THE CAPPER NOT WORKING PROPERLY", "d": "2025-01-31", "l": "REB"}, {"e": 76.0, "t": "", "d": "2025-02-03", "l": "REB"}, {"e": 64.1, "t": "", "d": "2025-02-04", "l": "REB"}, {"e": 91.2, "t": "", "d": "2025-02-04", "l": "REB"}, {"e": 78.8, "t": "had issues with the printer not working-needed to clean the printer heed", "d": "2025-05-19", "l": "REB"}], "OKECOM-04": [{"e": 62.8, "t": "", "d": "2025-01-06", "l": "REB"}, {"e": 68.7, "t": "", "d": "2025-01-07", "l": "REB"}], "DAPBAB-21": [{"e": 77.4, "t": "", "d": "2025-01-06", "l": "ELGIN II"}, {"e": 48.9, "t": "", "d": "2025-11-21", "l": "ELGIN II"}, {"e": 44.3, "t": "", "d": "2025-11-21", "l": "ELGIN II"}, {"e": 68.4, "t": "", "d": "2025-11-24", "l": "ELGIN II"}, {"e": 77.6, "t": "", "d": "2025-11-24", "l": "ELGIN II"}], "BOOGIE-01": [{"e": 86.3, "t": "", "d": "2025-12-30", "l": "BTL II"}, {"e": 78.9, "t": "", "d": "2026-02-10", "l": "BTL II"}, {"e": 98.8, "t": "", "d": "2026-02-10", "l": "BTL II"}, {"e": 44.7, "t": "", "d": "2026-02-11", "l": "BTL II"}, {"e": 94.1, "t": "", "d": "2026-02-11", "l": "BTL II"}], "PACTEC-02-FLA": [{"e": 78.4, "t": "", "d": "2025-01-07", "l": "PP 3"}, {"e": 79.2, "t": "", "d": "2025-01-07", "l": "PP 3"}], "FUCHSL-07": [{"e": 87.5, "t": "", "d": "2025-01-07", "l": "500"}, {"e": 89.5, "t": "", "d": "2025-01-07", "l": "500"}, {"e": 78.4, "t": "had to run Elgin I for 30 mins after lunch", "d": "2025-11-19", "l": "SINGLE SHOT"}, {"e": 26.1, "t": "We had to put the printer back to the line and also we had some issues with the filler. We stop the line and move to ELGIN 1", "d": "2025-11-19", "l": "SINGLE SHOT"}], "DAPBAB-09V1": [{"e": 83.6, "t": "", "d": "2025-04-17", "l": "ELGIN II"}, {"e": 84.2, "t": "", "d": "2025-04-17", "l": "ELGIN II"}, {"e": 98.2, "t": "", "d": "2025-04-21", "l": "ELGIN II"}, {"e": 94.1, "t": "", "d": "2025-04-21", "l": "ELGIN II"}, {"e": 63.3, "t": "Making dividers by hand to finish the P.O", "d": "2025-04-22", "l": "ELGIN II"}], "FUCHSL-06": [{"e": 24.3, "t": "Ran the machine with only 3 ppl, had issues with the weights and capper", "d": "2025-08-25", "l": "ELGIN II"}, {"e": 10.2, "t": "Ran the machine with only 4 ppl", "d": "2025-12-19", "l": "SINGLE SHOT"}, {"e": 21.6, "t": "Ran the line with only 4 ppl", "d": "2025-12-19", "l": "SINGLE SHOT"}, {"e": 88.2, "t": "", "d": "2025-12-22", "l": "SINGLE SHOT"}, {"e": 53.9, "t": "Ran out all the cans", "d": "2025-12-22", "l": "SINGLE SHOT"}], "TRUFRE-04": [{"e": 97.6, "t": "", "d": "2025-12-22", "l": "B1"}, {"e": 99.4, "t": "", "d": "2025-12-23", "l": "B1"}, {"e": 82.8, "t": "", "d": "2025-12-26", "l": "B1"}, {"e": 88.2, "t": "", "d": "2025-12-29", "l": "B1"}, {"e": 92.8, "t": "", "d": "2025-12-29", "l": "B1"}], "DAPBAB-04IPV2": [{"e": 79.2, "t": "", "d": "2025-05-29", "l": "PSG"}, {"e": 77.8, "t": "", "d": "2025-05-30", "l": "PSG"}, {"e": 68.8, "t": "issues with the material being cold. ", "d": "2025-05-30", "l": "PSG"}, {"e": 104.0, "t": "no issues to report", "d": "2025-06-02", "l": "PSG"}, {"e": 91.1, "t": "Running one side only with 4 people . ", "d": "2025-06-02", "l": "PSG"}], "DUKCAN-02V1": [{"e": 99.5, "t": "", "d": "2025-10-02", "l": "ELGIN I"}, {"e": 77.0, "t": "", "d": "2025-10-03", "l": "ELGIN I"}, {"e": 83.7, "t": "", "d": "2026-01-22", "l": "ELGIN I"}, {"e": 83.6, "t": "", "d": "2026-01-22", "l": "ELGIN I"}, {"e": 82.1, "t": "", "d": "2026-02-13", "l": "ELGIN I"}], "COSTEC-31": [{"e": 71.9, "t": "", "d": "2025-01-22", "l": "B4"}], "COSTEC-31B": [{"e": 83.3, "t": "", "d": "2025-01-22", "l": "B4"}], "AUNFAN-02V2": [{"e": 71.1, "t": "", "d": "2025-01-27", "l": "MB"}, {"e": 80.5, "t": "", "d": "2025-01-27", "l": "MB"}, {"e": 86.3, "t": "", "d": "2025-01-28", "l": "MB"}, {"e": 37.9, "t": "STOPPED MACHINE @8PM BECAUSE OF ISSUES WITH VACCUM AND AUGER NOT WORKING. ", "d": "2025-01-28", "l": "MB"}, {"e": 79.9, "t": " ISSUES WITH THE VACCUM NOT WORKING (90 MIN DOWN TIME)", "d": "2025-01-29", "l": "MB"}], "DAPBAB-18": [{"e": 55.9, "t": "We had many issues with filler we stopped the machine early and leave home at 1:30 pm ", "d": "2025-12-26", "l": "ELGIN II"}, {"e": 92.3, "t": "", "d": "2025-12-29", "l": "ELGIN II"}, {"e": 78.4, "t": "", "d": "2025-12-30", "l": "ELGIN II"}, {"e": 86.7, "t": "", "d": "2025-12-31", "l": "ELGIN II"}, {"e": 76.4, "t": "Issues with the labler", "d": "2026-01-09", "l": "ELGIN II"}], "COSTEC-30V2": [{"e": 91.5, "t": "", "d": "2025-01-27", "l": "B4"}, {"e": 89.2, "t": "", "d": "2025-01-28", "l": "B4"}], "COSTEC-09B": [{"e": 80.0, "t": "", "d": "2025-01-27", "l": "B4"}], "DUKCAN-04": [{"e": 89.7, "t": "no issues to report", "d": "2025-07-16", "l": "KALIX II"}, {"e": 104.5, "t": "waiting on material- temps didn't arrive-issues with the photo eye", "d": "2025-07-17", "l": "KALIX II"}, {"e": 98.4, "t": "", "d": "2025-07-17", "l": "KALIX II"}, {"e": 95.5, "t": "", "d": "2025-07-18", "l": "KALIX II"}, {"e": 103.7, "t": "no issues to report", "d": "2025-07-18", "l": "KALIX II"}], "COSTEC-46V2": [{"e": 81.4, "t": "", "d": "2025-01-29", "l": "B4"}], "AUNFAN-1V1": [{"e": 84.9, "t": "HAD TO CLEAN/SETUP BEFORE RUNNING PRODUCTION. ", "d": "2025-01-29", "l": "MB"}, {"e": 88.9, "t": "", "d": "2025-01-30", "l": "MB"}, {"e": 84.8, "t": " ISSUES WITH THE VACCUM NOT WORKING (90 MIN DOWN TIME)", "d": "2025-01-30", "l": "MB"}, {"e": 93.0, "t": "", "d": "2025-01-31", "l": "MB"}, {"e": 78.6, "t": "", "d": "2025-01-31", "l": "MB"}], "COSTEC-27": [{"e": 79.6, "t": "", "d": "2025-01-30", "l": "B4"}], "BOOGIE-02": [{"e": 106.5, "t": "", "d": "2025-11-04", "l": "B4"}, {"e": 103.2, "t": "", "d": "2025-11-05", "l": "B4"}, {"e": 77.7, "t": "", "d": "2025-11-05", "l": "B4"}, {"e": 94.1, "t": "", "d": "2025-12-10", "l": "B4"}, {"e": 95.8, "t": "", "d": "2025-12-11", "l": "B4"}], "DUKCAN-10": [{"e": 94.5, "t": "", "d": "2025-08-14", "l": "KALIX I"}, {"e": 83.6, "t": "Ran out all the materil", "d": "2025-08-14", "l": "KALIX I"}, {"e": 95.0, "t": "", "d": "2025-09-30", "l": "KALIX I"}, {"e": 70.8, "t": "Ran the machine witn 5 people", "d": "2025-09-30", "l": "KALIX I"}, {"e": 117.4, "t": "We had  issues with the heat , we call Rocio B. Also we finish the old artwork tube and we swich over to the new tube DUKCAN-10v1", "d": "2025-10-01", "l": "KALIX I"}], "JRWATK-11": [{"e": 58.3, "t": "", "d": "2025-04-15", "l": "PSG"}, {"e": 76.5, "t": "", "d": "2025-04-15", "l": "PSG"}, {"e": 65.6, "t": "RAN THE MACHINE WITH ONLY 3 PEOPLE", "d": "2025-04-16", "l": "PSG"}, {"e": 75.7, "t": "", "d": "2025-04-16", "l": "PSG"}, {"e": 64.0, "t": "We lost a lot of pouches where the folds did not open and underfilled the pouches.  Ran with 3 people", "d": "2025-04-24", "l": "PSG"}], "ATLPUT-02": [{"e": 93.1, "t": "", "d": "2025-04-08", "l": "B6"}, {"e": 81.0, "t": "", "d": "2025-04-08", "l": "B6"}, {"e": 81.8, "t": "", "d": "2025-04-09", "l": "B6"}, {"e": 85.4, "t": "", "d": "2025-04-09", "l": "B6"}, {"e": 78.7, "t": "", "d": "2025-04-10", "l": "B6"}], "OKECOM-07": [{"e": 51.8, "t": "", "d": "2025-11-07", "l": "REB"}, {"e": 80.9, "t": "We had issues with the printer, and the hitachi we call Julio ", "d": "2025-11-10", "l": "REB"}, {"e": 58.7, "t": "RAN OUT ALL THE MATERIAL", "d": "2025-11-10", "l": "REB"}, {"e": 83.0, "t": "", "d": "2025-11-11", "l": "REB"}, {"e": 56.5, "t": "", "d": "2025-11-11", "l": "REB"}], "ENZSOL-01": [{"e": 87.2, "t": "No issues to report- ran out all the material", "d": "2025-07-03", "l": "PP 1"}, {"e": 87.2, "t": "", "d": "2025-10-21", "l": "PP 1"}, {"e": 99.5, "t": "", "d": "2025-10-21", "l": "PP 2"}, {"e": 86.8, "t": "Issues with pump. 10:30-11:00AM Relieve in ELGIN 1 ", "d": "2025-10-22", "l": "PP 1"}, {"e": 87.9, "t": "Ran out all the Film", "d": "2025-10-22", "l": "PP 2"}], "DUKCAN-05": [{"e": 91.6, "t": "", "d": "2025-10-09", "l": "ELGIN I"}, {"e": 40.1, "t": "", "d": "2025-10-09", "l": "ELGIN I"}, {"e": 81.3, "t": "We had issues with materail thah looks not right . ", "d": "2025-10-10", "l": "ELGIN I"}, {"e": 102.1, "t": "", "d": "2025-10-10", "l": "ELGIN I"}, {"e": 88.0, "t": "", "d": "2025-11-12", "l": "ELGIN I"}], "ENZSOL-02": [{"e": 97.0, "t": "", "d": "2025-12-19", "l": "PP 1"}, {"e": 72.3, "t": "Stopped to helped run Kalix II", "d": "2025-12-19", "l": "PP 1"}, {"e": 98.6, "t": "", "d": "2025-12-22", "l": "PP 1"}, {"e": 96.5, "t": "", "d": "2025-12-22", "l": "PP 1"}, {"e": 100.6, "t": "We ran out all the material . ", "d": "2025-12-23", "l": "PP 1"}], "ARMPUM-02": [{"e": 24.3, "t": "Had issues with the nozzle dripping, which caused some of the tubes to come out oiled,had to stop the machine to wipe down the tubes. ", "d": "2025-04-23", "l": "KALIX I"}, {"e": 55.6, "t": "", "d": "2025-04-24", "l": "KALIX I"}], "DUKCAN-07": [{"e": 66.0, "t": "We had to clean the machine and floors ,finish the sanitation machine and pump, also we have to wait for the air hoses . ", "d": "2025-08-06", "l": "KALIX I"}, {"e": 0.0, "t": "no issues to report", "d": "2025-08-06", "l": "KALIX I"}, {"e": 98.9, "t": "Issues with leakers we call Rocio B , 8:30AM-9:00AM", "d": "2025-08-07", "l": "KALIX I"}, {"e": 46.4, "t": "started running the machine with 5 ppl, at 5pm Norma went because she wasn't feeling well. Ran the machine with on 4 people", "d": "2025-08-07", "l": "KALIX I"}, {"e": 68.6, "t": "No issues to report 10:00AM-10:30AM we releave at elgin 1 10:30am-11:00am took lunch.WE RAN OUT ALL THE TUBES .", "d": "2025-08-08", "l": "KALIX I"}], "TRUFRE-05": [{"e": 88.5, "t": "", "d": "2026-01-12", "l": "B1"}, {"e": 73.2, "t": "", "d": "2026-01-14", "l": "B1"}, {"e": 68.6, "t": "issues with the knife not cutting", "d": "2026-01-14", "l": "B1"}, {"e": 75.7, "t": "", "d": "2026-01-15", "l": "B1"}, {"e": 94.7, "t": "", "d": "2026-01-15", "l": "B1"}], "JRWATK-11V1": [{"e": 59.4, "t": "Ran the machine with only 5 people", "d": "2025-05-01", "l": "PSG"}, {"e": 80.0, "t": "No issues . ", "d": "2025-05-02", "l": "PSG"}, {"e": 108.2, "t": "started the shift running both sides/ switched to 1 sides once REB was ready to run", "d": "2025-05-03", "l": "PSG"}, {"e": 69.0, "t": "We have issues when swich ove to tank #2 with the filler we call Chris , bags  are coming out unopened . ", "d": "2025-05-05", "l": "PSG"}, {"e": 69.3, "t": " Isuess with Ultrasonic sealer", "d": "2025-05-06", "l": "PSG"}], "OKECOM-03": [{"e": 72.4, "t": "", "d": "2025-07-30", "l": "REB"}, {"e": 91.8, "t": "Issues with weight flucating on nozzle#1. ", "d": "2025-07-31", "l": "REB"}, {"e": 91.6, "t": "no issues to report", "d": "2025-08-01", "l": "REB"}, {"e": 64.2, "t": "", "d": "2025-08-01", "l": "REB"}, {"e": 93.6, "t": "We wating on pallets an also we have issues with the label machine . We call Rocio B .", "d": "2025-09-30", "l": "REB"}], "DUKCAN-01V1": [{"e": 96.8, "t": "", "d": "2025-11-05", "l": "ELGIN I"}, {"e": 99.9, "t": "", "d": "2025-11-06", "l": "ELGIN I"}, {"e": 99.2, "t": "", "d": "2025-11-06", "l": "ELGIN I"}, {"e": 89.1, "t": "Ran out all the materail . ", "d": "2025-11-07", "l": "ELGIN I"}, {"e": 88.3, "t": "", "d": "2026-01-08", "l": "KALIX II"}], "JRWATK-21V1": [{"e": 84.7, "t": "issues with the printer/ needed to replace the printer", "d": "2025-05-13", "l": "PSG"}, {"e": 66.1, "t": "", "d": "2025-05-14", "l": "PSG"}, {"e": 56.0, "t": "Ran the machine with 3 ppl until 5pm. ", "d": "2025-05-14", "l": "PSG"}, {"e": 82.3, "t": "no issues to report", "d": "2025-05-15", "l": "PSG"}, {"e": 79.9, "t": "start of shift had issues with printer, stopped machine to run Eligin I for 30 minutes-issues with the filler", "d": "2025-05-15", "l": "PSG"}], "DAPBAB-20": [{"e": 35.3, "t": "ran the machine with only 5 people, had issues with the labels getting jammed in the rolls. Selene helped to fix the issues", "d": "2025-05-09", "l": "ELGIN II"}, {"e": 77.1, "t": "", "d": "2025-08-12", "l": "ELGIN II"}, {"e": 76.8, "t": "issues with the right side nozzles constanly leaking", "d": "2025-08-12", "l": "ELGIN II"}, {"e": 52.5, "t": "ran the line with 6 people ", "d": "2025-08-14", "l": "ELGIN II"}, {"e": 75.3, "t": "Ran out all the material", "d": "2025-08-15", "l": "ELGIN II"}], "OKECOM-05": [{"e": 84.6, "t": "", "d": "2026-02-02", "l": "ELGIN I"}, {"e": 82.1, "t": "we ran out material ", "d": "2026-02-03", "l": "ELGIN I"}, {"e": 99.3, "t": "", "d": "2026-02-04", "l": "ELGIN I"}, {"e": 97.9, "t": "", "d": "2026-02-05", "l": "ELGIN I"}, {"e": 76.5, "t": "", "d": "2026-02-05", "l": "ELGIN I"}], "DUKCAN-06V1": [{"e": 60.9, "t": "", "d": "2025-05-16", "l": "ELGIN I"}, {"e": 72.9, "t": "had issues with the labels not being algin on the jars", "d": "2025-05-16", "l": "ELGIN I"}, {"e": 96.4, "t": "No issues to report", "d": "2025-05-29", "l": "ELGIN I"}, {"e": 87.3, "t": "", "d": "2025-05-29", "l": "ELGIN I"}], "DAPBAB-25": [{"e": 65.4, "t": "no issues to report", "d": "2025-05-22", "l": "PSG"}, {"e": 96.1, "t": "", "d": "2025-05-22", "l": "PSG"}, {"e": 85.0, "t": "", "d": "2025-06-23", "l": "PSG"}, {"e": 76.7, "t": "Ran out all the material", "d": "2025-06-24", "l": "PSG"}, {"e": 57.1, "t": "Finish the P.O order . Change over to DAPBAB-26", "d": "2025-06-26", "l": "PSG"}], "BRULIN-01": [{"e": 78.8, "t": "Issues all day with bubbles and wrinkles", "d": "2025-06-03", "l": "PP 1"}, {"e": 81.6, "t": "", "d": "2025-06-03", "l": "PP 1"}, {"e": 57.9, "t": "problems with bubbles and wrinles constantly throughtout the shift.", "d": "2025-06-04", "l": "PP 1"}, {"e": 69.4, "t": "We have issues with the material and we have to changre to another tote, problesm with pump Julio was breaking apart the pum to fix it . We ", "d": "2025-06-05", "l": "PP 1"}, {"e": 91.7, "t": "issues with the weights and leakers", "d": "2025-06-05", "l": "PP 1"}], "TRUFRE-09": [{"e": 90.2, "t": "Waiting on material to be mix . ", "d": "2025-07-07", "l": "B1"}, {"e": 50.6, "t": "Karla disassemble the hoppers and ran hot water through the line before moving to B4", "d": "2025-07-07", "l": "B1"}, {"e": 86.5, "t": "", "d": "2025-12-04", "l": "B1"}, {"e": 60.9, "t": "Finished the order", "d": "2025-12-05", "l": "B1"}, {"e": 94.7, "t": "", "d": "2025-12-05", "l": "B1"}], "DUKCAN-13": [{"e": 102.6, "t": "no issues to report", "d": "2025-05-29", "l": "KALIX I"}, {"e": 90.0, "t": "had to wait for material to be brought to the line. ", "d": "2025-05-29", "l": "KALIX I"}], "TRUFRE-08": [{"e": 86.0, "t": "We had to clean the line . ", "d": "2025-11-17", "l": "B1"}, {"e": 72.6, "t": "Issues with nozzle#1 constanly leaking, Stopped the machine because of leakiing issues. ", "d": "2025-11-17", "l": "B1"}, {"e": 96.5, "t": "", "d": "2025-11-18", "l": "B1"}, {"e": 97.5, "t": "", "d": "2025-11-19", "l": "B1"}, {"e": 91.6, "t": "", "d": "2025-11-20", "l": "B1"}], "TRUFRE0-05": [{"e": 98.7, "t": "Karla had to adjust the knife and nozzle before starting the machine. ", "d": "2025-06-02", "l": "B1"}], "DUKCAN-02V2": [{"e": 87.3, "t": "", "d": "2025-06-03", "l": "ELGIN I"}, {"e": 81.2, "t": "no issues to report", "d": "2025-06-03", "l": "ELGIN I"}], "DUKCAN-11": [{"e": 99.1, "t": "No issues to report", "d": "2025-10-23", "l": "ELGIN I"}, {"e": 100.8, "t": "", "d": "2026-01-20", "l": "ELGIN I"}, {"e": 93.1, "t": "", "d": "2026-01-20", "l": "ELGIN I"}, {"e": 83.1, "t": "", "d": "2026-01-21", "l": "ELGIN I"}, {"e": 101.1, "t": "", "d": "2026-01-21", "l": "ELGIN I"}], "TRIPRO-01V1": [{"e": 68.2, "t": "", "d": "2026-01-13", "l": "B6"}, {"e": 62.3, "t": "Issues with fiim we call patty , ", "d": "2026-01-13", "l": "B6"}, {"e": 56.5, "t": "Issues with weights we call patty , film get stuck ", "d": "2026-01-14", "l": "B6"}, {"e": 66.6, "t": "issues with the top seal", "d": "2026-01-14", "l": "B6"}, {"e": 86.8, "t": "Ran out all the material ", "d": "2026-01-15", "l": "B6"}], "DAPBAB-0V2": [{"e": 72.4, "t": "", "d": "2025-06-10", "l": "PSG"}, {"e": 83.8, "t": "waiting for material to be approved", "d": "2025-06-19", "l": "PSG"}, {"e": 67.2, "t": "Martin had to finish saniting the machine before starting production, ran the machine with only 2ppl", "d": "2026-01-16", "l": "PSG"}, {"e": 81.9, "t": "Had issues with the machine making a loud noises, stopped the machine", "d": "2026-01-19", "l": "PSG"}], "OKECOM-10": [{"e": 86.3, "t": "", "d": "2025-09-26", "l": "ELGIN I"}, {"e": 98.7, "t": "", "d": "2025-09-26", "l": "ELGIN I"}, {"e": 112.5, "t": "No issues to report ", "d": "2025-09-29", "l": "ELGIN I"}, {"e": 101.2, "t": "", "d": "2025-09-29", "l": "ELGIN I"}, {"e": 94.3, "t": "Had to setup line before starting production", "d": "2025-09-30", "l": "ELGIN I"}], "OKECOM-08": [{"e": 89.0, "t": "No issues to report", "d": "2025-10-20", "l": "REB"}, {"e": 49.6, "t": "No issues to report", "d": "2025-10-20", "l": "REB"}, {"e": 84.5, "t": "", "d": "2025-11-12", "l": "REB"}, {"e": 57.3, "t": "Ran all the caps . ", "d": "2025-11-14", "l": "REB"}, {"e": 84.2, "t": "issues with printer , ran out material . ", "d": "2025-11-18", "l": "REB"}], "WATINC-01-100": [{"e": 68.1, "t": "", "d": "2025-06-25", "l": "B6"}, {"e": 78.3, "t": "6:00AM-8:30AM Patty was working in the machine the cylinder wasn\u2019t working properly and Pwas chanatty ", "d": "2025-06-26", "l": "B6"}, {"e": 83.8, "t": "had to wait 30 minutes for the labels QC was ina meeting-ppl ran ELGIN for 30 minutes after lunch", "d": "2025-06-26", "l": "B6"}, {"e": 81.7, "t": "problems with the vaccum not working", "d": "2025-06-27", "l": "B6"}, {"e": 102.1, "t": "Ran out all the material.", "d": "2025-06-30", "l": "B6"}], "BOOGIE-03": [{"e": 89.4, "t": "", "d": "2025-09-02", "l": "BTL I"}, {"e": 81.1, "t": "Ran the machine with only 5 people", "d": "2025-09-11", "l": "BTL I"}, {"e": 70.1, "t": "We  had to waited for bottles  , the main seal was not seal proporly and we had issues with the weighst. Ran out all the materail . ", "d": "2025-09-12", "l": "BTL I"}, {"e": 83.3, "t": "Had to finish the cleaning and santizing the machine before running production. Ran the machine with 5 ppl", "d": "2025-09-16", "l": "BTL I"}, {"e": 43.4, "t": "Ran out all the labels . Also change over to BOOGIE-01", "d": "2025-09-17", "l": "BTL II"}], "BOOGIE-3": [{"e": 82.0, "t": "No issues to report ", "d": "2025-07-08", "l": "BTL I"}], "DAPBAB-05": [{"e": 62.2, "t": " we had issues with pistons and we call Julio , also we stop the machine so we can do a rework . ", "d": "2025-10-07", "l": "ELGIN II"}, {"e": 67.4, "t": "", "d": "2025-10-07", "l": "ELGIN II"}, {"e": 92.2, "t": "", "d": "2025-10-21", "l": "ELGIN II"}, {"e": 89.8, "t": "", "d": "2025-12-23", "l": "ELGIN II"}, {"e": 93.1, "t": "We had issues with the labeler machine we had to call mecanic . ", "d": "2025-12-23", "l": "ELGIN II"}], "TRUFRE-06": [{"e": 109.4, "t": "", "d": "2026-01-19", "l": "B1"}, {"e": 94.7, "t": "", "d": "2026-01-20", "l": "B1"}, {"e": 95.3, "t": "", "d": "2026-01-20", "l": "B1"}, {"e": 82.0, "t": "Ran out all the film", "d": "2026-01-21", "l": "B1"}, {"e": 102.0, "t": "", "d": "2026-01-21", "l": "B1"}], "DUKCAN-15": [{"e": 67.1, "t": "Had issues with laber not working", "d": "2025-07-23", "l": "ELGIN I"}, {"e": 73.6, "t": "", "d": "2025-07-24", "l": "ELGIN I"}, {"e": 67.8, "t": "", "d": "2025-07-24", "l": "ELGIN I"}], "PACTEC-01G": [{"e": 29.4, "t": "We had problems with leakers..Stopped the machine", "d": "2025-12-29", "l": "PP 3"}, {"e": 80.3, "t": "", "d": "2025-12-29", "l": "PP 3"}, {"e": 90.3, "t": "", "d": "2025-12-30", "l": "PP 3"}, {"e": 66.8, "t": "", "d": "2025-12-31", "l": "PP 3"}, {"e": 81.7, "t": "Change roll ", "d": "2025-12-31", "l": "PP 3"}], "DUKCAN-20": [{"e": 79.1, "t": "issues with the labels machine", "d": "2026-01-14", "l": "ELGIN I"}, {"e": 84.7, "t": "", "d": "2026-01-14", "l": "ELGIN I"}, {"e": 66.5, "t": "", "d": "2026-01-16", "l": "ELGIN I"}, {"e": 70.8, "t": "Issues with the lableing machine", "d": "2026-01-16", "l": "ELGIN I"}, {"e": 74.3, "t": "Ran out all the material , and having issues with labels . ", "d": "2026-01-17", "l": "ELGIN I"}], "DUKCAN-14": [{"e": 81.8, "t": "issues with the material and temp, had to wait 20 mins for approval", "d": "2025-12-03", "l": "ELGIN I"}, {"e": 102.6, "t": "", "d": "2025-12-04", "l": "ELGIN I"}, {"e": 91.8, "t": "", "d": "2025-12-04", "l": "ELGIN I"}, {"e": 82.2, "t": "Finished the material", "d": "2025-12-05", "l": "ELGIN I"}, {"e": 91.8, "t": "", "d": "2025-12-05", "l": "ELGIN I"}], "FUCHSL-05": [{"e": 27.2, "t": "We have to call Rocio B because the material was not pump into the hopper,also we have other mecanical  issues that she fix it . ", "d": "2025-08-18", "l": "KENTEX"}], "DUKCAN-16": [{"e": 92.8, "t": "6:40am-9:30am We started to had issues  with the counter we had to recounnt the cases to make sure . We call Bill ", "d": "2025-08-21", "l": "B3"}, {"e": 94.1, "t": "Karla was training Norma while operating B3.", "d": "2025-08-21", "l": "B3"}, {"e": 78.7, "t": "", "d": "2025-08-22", "l": "B3"}, {"e": 73.5, "t": "No issues", "d": "2025-08-25", "l": "B3"}, {"e": 85.9, "t": "ran out of film", "d": "2025-08-25", "l": "B3"}], "TRUFRE-11": [{"e": 91.5, "t": "", "d": "2026-01-27", "l": "B1"}, {"e": 92.9, "t": "", "d": "2026-01-28", "l": "B1"}, {"e": 95.5, "t": "", "d": "2026-01-28", "l": "B1"}, {"e": 44.3, "t": "RAN OUT ALL THE MATERIAL ", "d": "2026-01-29", "l": "B1"}, {"e": 94.8, "t": "", "d": "2026-02-13", "l": "B1"}], "DUKCAN-17": [{"e": 65.3, "t": "we had a lot issues with labeling machine , with bottles not printing code , also we had issues with the capper we call Rocio B. ", "d": "2026-02-02", "l": "REB"}, {"e": 0.0, "t": "", "d": "2026-02-03", "l": "REB"}, {"e": 68.3, "t": "", "d": "2026-02-03", "l": "REB"}, {"e": 54.1, "t": "we had issues with the  cappers also the machine stopped to work because it was leaking oil . We had to change the spindle  rubers , ", "d": "2026-02-04", "l": "REB"}, {"e": 77.2, "t": "Issues with nozzles not going up we call Rocio B. We ran out material ", "d": "2026-02-05", "l": "REB"}], "ALLINT-01": [{"e": 65.5, "t": "We had issues  with the fillm that ripped when it was passing through the machine . ", "d": "2025-09-08", "l": "WHITE BROWN"}, {"e": 113.7, "t": "We had issues with leakers in number #4. ", "d": "2025-09-09", "l": "WHITE BROWN"}, {"e": 107.2, "t": "Ran out all the film", "d": "2025-09-09", "l": "WHITE BROWN"}, {"e": 101.4, "t": "", "d": "2025-09-23", "l": "WHITE BROWN"}, {"e": 100.3, "t": "Ran out the material", "d": "2025-09-23", "l": "WHITE BROWN"}], "PACTEC-05G": [{"e": 19.1, "t": "", "d": "2025-09-16", "l": "PP 3"}, {"e": 21.2, "t": "", "d": "2025-09-16", "l": "PP 3"}, {"e": 98.0, "t": "We had issues with knife we call rocio B", "d": "2025-11-25", "l": "PP 3"}, {"e": 19.0, "t": "", "d": "2025-12-05", "l": "PP 3"}, {"e": 17.9, "t": "", "d": "2025-12-08", "l": "PP 3"}], "PACTEC-07G": [{"e": 16.8, "t": "", "d": "2025-09-16", "l": "PP 3"}, {"e": 12.3, "t": "", "d": "2025-09-17", "l": "PP 3"}, {"e": 15.2, "t": "", "d": "2025-09-17", "l": "PP 3"}, {"e": 14.0, "t": "finish the P.O order change over to PACTEC-06G", "d": "2025-09-18", "l": "PP 3"}], "PACTEC-06G": [{"e": 90.8, "t": "", "d": "2025-11-25", "l": "PP 3"}, {"e": 102.0, "t": "", "d": "2025-11-26", "l": "PP 3"}, {"e": 15.3, "t": "changing date code and also training on how to change the row sheets size . ", "d": "2025-12-09", "l": "PP 3"}, {"e": 15.4, "t": "", "d": "2025-12-09", "l": "PP 3"}, {"e": 9.4, "t": "Finish the P.O# ORDER ", "d": "2025-12-10", "l": "PP 3"}], "DUKCAN-10V1": [{"e": 100.4, "t": "no issues to report", "d": "2025-10-01", "l": "KALIX I"}, {"e": 91.3, "t": "", "d": "2025-10-01", "l": "KALIX I"}, {"e": 74.9, "t": "Issues with the knife not cutting the seals on  the tubes. Stopped the machine at 6pm", "d": "2025-10-02", "l": "KALIX I"}, {"e": 88.6, "t": "", "d": "2025-10-02", "l": "KALIX I"}, {"e": 70.2, "t": "Ran out all the material. Move to REB to run DUKCAN-17", "d": "2025-10-03", "l": "KALIX I"}], "DAPBAB-01V1": [{"e": 109.0, "t": "no issues to report", "d": "2025-10-22", "l": "PP 1"}, {"e": 74.5, "t": "We had isssues with the niche in number 4  , also 10:30 - 11:00 AM we Relieve in ELGIN 1", "d": "2025-10-22", "l": "PP 2"}, {"e": 85.4, "t": "", "d": "2025-10-23", "l": "PP 1"}, {"e": 111.0, "t": "", "d": "2025-10-24", "l": "PP 2"}, {"e": 96.0, "t": "Issues with the knife, ran out of film", "d": "2025-10-27", "l": "PP 2"}], "DUKCAN-07V1": [{"e": 85.4, "t": "", "d": "2025-10-09", "l": "KALIX I"}, {"e": 74.7, "t": "", "d": "2025-10-09", "l": "KALIX I"}, {"e": 75.3, "t": "We had issues with a air hose that break and we had to replace we took look ast 9:40am and aslo relieved at ELGIN 1 ", "d": "2025-10-10", "l": "KALIX I"}, {"e": 82.3, "t": "", "d": "2025-10-10", "l": "KALIX I"}, {"e": 27.9, "t": "Ran out al the material . ", "d": "2025-10-13", "l": "KALIX I"}], "ODEBEA-02": [{"e": 32.0, "t": "", "d": "2025-10-15", "l": "KALIX II"}, {"e": 25.7, "t": "Had to finish set up before running production. Stopped the line because issues with the tube sealing", "d": "2025-10-29", "l": "KALIX I"}, {"e": 50.4, "t": "", "d": "2025-10-30", "l": "KALIX II"}, {"e": 76.8, "t": "", "d": "2025-10-30", "l": "KALIX II"}, {"e": 80.5, "t": "", "d": "2025-10-31", "l": "KALIX II"}], "DUKCAN-12": [{"e": 57.3, "t": "issues with the top seal not straight , we call rocio B", "d": "2026-01-30", "l": "KALIX I"}, {"e": 62.6, "t": "", "d": "2026-02-06", "l": "KALIX I"}, {"e": 68.0, "t": "", "d": "2026-02-06", "l": "KALIX II"}, {"e": 82.8, "t": "", "d": "2026-02-09", "l": "KALIX I"}, {"e": 100.2, "t": "Waiting for S&R bring the material . ", "d": "2026-02-09", "l": "KALIX I"}], "DUKCAN-08": [{"e": 77.8, "t": "", "d": "2025-10-16", "l": "REB"}], "OKECOM-11": [{"e": 88.7, "t": "", "d": "2025-10-17", "l": "ELGIN I"}, {"e": 77.6, "t": "Ran out all the material", "d": "2025-10-17", "l": "ELGIN I"}, {"e": 57.1, "t": "", "d": "2026-01-27", "l": "ELGIN I"}], "DUKCAN-18": [{"e": 90.7, "t": "issues with the eye not center, machine was giving a orentation default, also with one cup falling out from were is the tube came out . ", "d": "2025-12-18", "l": "KALIX II"}, {"e": 96.9, "t": "", "d": "2025-12-19", "l": "KALIX II"}, {"e": 27.5, "t": "had complete the setup before running production, had issues with the phote eye not reading the tubes. ", "d": "2026-01-14", "l": "KALIX II"}, {"e": 81.6, "t": "Ran the machine with only 5 ppl", "d": "2026-01-15", "l": "KALIX II"}, {"e": 67.6, "t": "issues with chiller ", "d": "2026-01-15", "l": "KALIX II"}], "TRUFRE-01V1": [{"e": 87.2, "t": "", "d": "2025-10-27", "l": "B6"}], "TRUFRE-13": [{"e": 85.2, "t": "", "d": "2025-10-31", "l": "B1"}, {"e": 97.5, "t": "", "d": "2025-11-21", "l": "B1"}, {"e": 78.4, "t": "", "d": "2025-11-24", "l": "B1"}, {"e": 93.6, "t": "", "d": "2025-11-24", "l": "B1"}, {"e": 60.2, "t": "RAN OUT ALL THE MATERIAL ", "d": "2025-11-25", "l": "B1"}], "TRUFRE-15": [{"e": 84.1, "t": "", "d": "2025-10-31", "l": "BTL I"}, {"e": 68.4, "t": "", "d": "2025-10-31", "l": "BTL I"}, {"e": 95.8, "t": "", "d": "2025-11-03", "l": "BTL I"}], "DUKCAN-19": [{"e": 65.2, "t": "", "d": "2025-11-03", "l": "KALIX II"}, {"e": 84.5, "t": "Issues with the material dripping from the nozzle, Had to changed the nozzle from Kalix I", "d": "2025-12-11", "l": "KALIX II"}, {"e": 63.3, "t": "Ran the machine with 4 PPl", "d": "2025-12-11", "l": "KALIX II"}, {"e": 63.2, "t": "", "d": "2025-12-12", "l": "KALIX II"}], "MSEGRO-06": [{"e": 47.3, "t": "", "d": "2025-11-10", "l": "KALIX II"}], "DUKCAN-05V1": [{"e": 100.7, "t": "", "d": "2025-11-19", "l": "ELGIN I"}, {"e": 92.4, "t": "ran out of labels for the printer. Needed to label boxes manually ", "d": "2025-11-19", "l": "ELGIN I"}, {"e": 112.5, "t": "", "d": "2025-11-20", "l": "ELGIN I"}, {"e": 98.7, "t": "", "d": "2025-11-20", "l": "ELGIN I"}, {"e": 64.6, "t": "We had to put labels by hand , ran out all the material . ", "d": "2025-11-21", "l": "ELGIN I"}], "SYNTEC-03": [{"e": 86.8, "t": " Ran out all the material and tubes . ", "d": "2025-11-14", "l": "500"}, {"e": 72.4, "t": "We strted to have issues with  the ultrasonic machine not sealing the tubes we had to call Julio. ", "d": "2025-11-14", "l": "500"}], "TRUFRE-12": [{"e": 38.4, "t": "Issues with the filler/then the machine just stopped working. ", "d": "2025-11-19", "l": "B6"}, {"e": 59.6, "t": "", "d": "2025-11-20", "l": "B6"}, {"e": 66.0, "t": "issues with the material and the film", "d": "2025-11-20", "l": "B6"}, {"e": 56.2, "t": "", "d": "2025-11-21", "l": "B6"}, {"e": 73.3, "t": "", "d": "2025-11-24", "l": "B6"}], "CHIGEL-04": [{"e": 100.3, "t": "Patty was working in the line making adjustments . ", "d": "2025-11-21", "l": "B3"}, {"e": 67.0, "t": "", "d": "2025-11-24", "l": "B3"}], "TRUFRE-16": [{"e": 82.3, "t": "", "d": "2025-11-25", "l": "PSG"}, {"e": 83.9, "t": "", "d": "2025-11-25", "l": "PSG"}], "CHIGEL-05": [{"e": 80.0, "t": "Line cleaning and wait on Jeff to make sure material was approved .", "d": "2025-11-25", "l": "B3"}, {"e": 86.2, "t": "", "d": "2025-11-26", "l": "B3"}, {"e": 96.7, "t": "", "d": "2025-12-01", "l": "B3"}, {"e": 63.3, "t": "", "d": "2025-12-02", "l": "B3"}], "CHIGEL-07": [{"e": 108.8, "t": "", "d": "2025-12-03", "l": "B3"}, {"e": 106.3, "t": "", "d": "2025-12-04", "l": "B3"}, {"e": 80.8, "t": "", "d": "2025-12-05", "l": "B3"}], "DUKCAN-04V1": [{"e": 102.8, "t": "", "d": "2025-12-22", "l": "KALIX II"}, {"e": 96.1, "t": "", "d": "2026-01-08", "l": "KALIX II"}, {"e": 93.8, "t": "", "d": "2026-01-09", "l": "KALIX II"}, {"e": 71.6, "t": "Ran out all the material", "d": "2026-01-10", "l": "KALIX II"}], "FUCHSL-11": [{"e": 21.0, "t": "Issues with heat, christ and Rocio B was working in the machinme ,  we move those people to ran B1 ", "d": "2026-01-16", "l": "KENTEX"}, {"e": 44.5, "t": "material was to cold we had to wait for material to warming, Julio was in the line  helping . ", "d": "2026-02-03", "l": "KALIX II"}, {"e": 61.4, "t": "materail was to cold  , hose clogged, machine was operating , we call Julio ", "d": "2026-02-04", "l": "KALIX II"}, {"e": 52.1, "t": "WE HAD ISSUES WITH MATERIAL BE TO COLD THAT WE HAD TO WAITED ", "d": "2026-02-05", "l": "KALIX II"}, {"e": 42.9, "t": "Ran out all the tubes , also Julio was doing the change over for the new item . Fuchsl-10", "d": "2026-02-06", "l": "KALIX I"}], "PURPRO-01": [{"e": 84.0, "t": "Issues with the weight flucating", "d": "2026-01-12", "l": "B5"}, {"e": 47.1, "t": "issues with the weight Flucating", "d": "2026-01-12", "l": "B5"}, {"e": 50.3, "t": "issues with the weight and clips", "d": "2026-01-13", "l": "B5"}, {"e": 39.2, "t": "Problems with the clips not grabbing the pouches, also the arm pick off  falling down we call Julio , and move those people to ELGIN 1 ", "d": "2026-01-13", "l": "B5"}, {"e": 79.5, "t": "we ran out all the material . ", "d": "2026-01-14", "l": "B5"}], "RAWSUG-02": [{"e": 91.5, "t": "", "d": "2026-01-26", "l": "B4"}, {"e": 93.7, "t": "", "d": "2026-01-27", "l": "B4"}, {"e": 100.2, "t": "", "d": "2026-01-28", "l": "B4"}, {"e": 89.3, "t": "", "d": "2026-01-28", "l": "B4"}, {"e": 104.6, "t": "RAN OUT ALL THE MATERIAL THAT WAS LEFT AT THE HOPPER", "d": "2026-01-29", "l": "B4"}], "RAWSUG-01": [{"e": 86.5, "t": "we had issues with nozzle leaking material also we had issues with rinkles and waiting on materail , ", "d": "2026-02-10", "l": "B5"}, {"e": 19.6, "t": "Issues with the rolls not pass the film, after that issues was fixed, then had problema with the photo eye not reading the film, stopped mac", "d": "2026-02-11", "l": "B5"}, {"e": 99.4, "t": "", "d": "2026-02-11", "l": "B5"}, {"e": 90.2, "t": "", "d": "2026-02-12", "l": "B5"}, {"e": 100.6, "t": "", "d": "2026-02-13", "l": "B5"}], "TRUFRE-18": [{"e": 27.9, "t": "", "d": "2026-02-02", "l": "PSG"}, {"e": 82.8, "t": "", "d": "2026-02-03", "l": "PSG"}, {"e": 42.2, "t": "", "d": "2026-02-03", "l": "PSG"}, {"e": 27.0, "t": "Hose clogged machine stop operate we call Julio ", "d": "2026-02-04", "l": "PSG"}, {"e": 61.6, "t": "Issues with motor , we ran out material . ", "d": "2026-02-05", "l": "PSG"}], "TRUFRE-17": [{"e": 42.2, "t": "", "d": "2026-02-06", "l": "PSG"}, {"e": 77.8, "t": "", "d": "2026-02-06", "l": "PSG"}, {"e": 60.3, "t": "From-7:30AM-8:00AM We had to clean the entire line with hot water , ", "d": "2026-02-09", "l": "PSG"}, {"e": 105.6, "t": "", "d": "2026-02-09", "l": "PSG"}, {"e": 76.8, "t": "We clean all the machine for the next Item . ", "d": "2026-02-10", "l": "PSG"}], "PACTEC-03-FLAT": [{"e": 85.9, "t": "", "d": "2026-02-09", "l": "PP 3"}, {"e": 83.5, "t": "", "d": "2026-02-09", "l": "PP 3"}, {"e": 94.4, "t": "", "d": "2026-02-10", "l": "PP 3"}, {"e": 70.2, "t": "", "d": "2026-02-10", "l": "PP 3"}, {"e": 80.5, "t": "Had to change the teflon on the top seal", "d": "2026-02-11", "l": "PP 3"}], "FUCHSL-10": [{"e": 85.5, "t": "materail was to cold , the arm enjector bent  Julio was fixing it , ", "d": "2026-02-09", "l": "KALIX II"}, {"e": 66.9, "t": "Material was to cold . Finish the P.O order move people to BTL II. ", "d": "2026-02-10", "l": "KALIX II"}], "TRUFRE-20": [{"e": 102.6, "t": "", "d": "2026-02-10", "l": "PSG"}, {"e": 26.2, "t": "Had to wait for QC to approve the materail", "d": "2026-02-11", "l": "PSG"}], "PACTEC-02FLAT": [{"e": 105.9, "t": "", "d": "2026-02-11", "l": "PP 3"}, {"e": 106.4, "t": "", "d": "2026-02-11", "l": "PP 3"}, {"e": 76.2, "t": "", "d": "2026-02-12", "l": "PP 3"}, {"e": 106.9, "t": "", "d": "2026-02-12", "l": "PP 3"}, {"e": 89.6, "t": "", "d": "2026-02-13", "l": "PP 3"}], "TRUFRE-22": [{"e": 100.1, "t": " ", "d": "2026-02-12", "l": "B1"}, {"e": 105.6, "t": "", "d": "2026-02-12", "l": "B1"}, {"e": 83.3, "t": "", "d": "2026-02-13", "l": "B1"}], "DAPBAB-17V1": [{"e": 38.8, "t": "Making adjustments in the line and introduction material into the hopper. Issues with the labels machine. ", "d": "2026-02-12", "l": "REB"}, {"e": 43.3, "t": "Had problems all night with the labler and printer", "d": "2026-02-12", "l": "REB"}], "TRUFRE-19": [{"e": 87.4, "t": "", "d": "2026-02-12", "l": "PSG"}], "DAPBAB-28": [{"e": 48.6, "t": "", "d": "2026-02-13", "l": "PSG"}]};
+
+
+// ━━━━━━━━ STATE ━━━━━━━━
+let jobs = [];          // all parsed jobs
+let workDays = [];      // array of Date objects (Mon-Fri, 3 weeks)
+let orderFileName = '';
+
+function todayMidnight() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+function buildWorkDays() {
+    workDays = [];
+    let d = todayMidnight();
+    // start on today if weekday, else next Monday
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate()+1);
+    let added = 0;
+    const cur = new Date(d);
+    while (added < 15) { // 3 weeks of workdays
+        if (cur.getDay() !== 0 && cur.getDay() !== 6) { workDays.push(new Date(cur)); added++; }
+        cur.setDate(cur.getDate()+1);
+    }
+}
+
+function dayKey(d) { return d.toISOString().split('T')[0]; }
+function fmtDay(d) { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate(); }
+function fmt(n) { return (n==null||isNaN(n)) ? '—' : Math.round(n).toLocaleString(); }
+
+// ━━━━━━━━ SKU CLEANING (same as dashboard) ━━━━━━━━
+function cleanSKU(val) {
+    if (!val) return null;
+    let s = String(val).trim().toUpperCase();
+    s = s.replace(/\s*\(.*?\)\s*/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/\s*-+\s*/g, '-');
+    s = s.replace(/-{2,}/g, '-');
+    s = s.replace(/(-\d+)\s+(V\d)/g, '$1$2');
+    s = s.replace(/(-\d+)v(\d)/g, '$1V$2');
+    return s;
+}
+
+// Get base fill SKU for stats lookup: "TRUFRE-01-03V2" → "TRUFRE-01"
+function baseSKU(item) {
+    const s = cleanSKU(item);
+    if (!s) return null;
+    const m = s.match(/^([A-Z]+-\d+)/);
+    return m ? m[1] : s;
+}
+
+function isCompoundItem(item, machine) {
+    const s = cleanSKU(item) || '';
+    if (/-\d+-03(V\d+)?$/.test(s)) return true;
+    const mc = String(machine||'').trim().toUpperCase();
+    if (mc === 'COMPOUND' || mc === 'RIBBON BLENDER') return true;
+    return false;
+}
+
+// ━━━━━━━━ DATE PARSING ━━━━━━━━
+function parseDue(val) {
+    // returns {date: Date|null, special: 'ASAP'|'ONGOING'|null}
+    if (val == null) return {date:null, special:null};
+    if (val instanceof Date && !isNaN(val)) return {date:val, special:null};
+    let s = String(val).trim().toUpperCase();
+    if (s === 'ASAP') return {date:null, special:'ASAP'};
+    if (s === 'ONGOING' || s === 'ON GOING') return {date:null, special:'ONGOING'};
+    // Range like "12/1/2025 - 3/31/2026" → use end
+    const range = s.split(/\s*[-–]\s*/);
+    if (range.length === 2 && range[1].match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)) {
+        const d2 = new Date(range[1]);
+        if (!isNaN(d2)) return {date:d2, special:null};
+    }
+    // Excel serial
+    if (!isNaN(s) && Number(s) > 40000 && Number(s) < 60000) {
+        const d = new Date((Number(s) - 25569) * 86400000);
+        if (!isNaN(d)) return {date:d, special:null};
+    }
+    const d = new Date(s);
+    if (!isNaN(d)) return {date:d, special:null};
+    return {date:null, special:null};
+}
+
+// ━━━━━━━━ PARSE ORDER REPORT ━━━━━━━━
+function handleUpload(file) {
+    if (!file) return;
+    orderFileName = file.name;
+    const st = document.getElementById('uploadStatus');
+    st.className = 'upload-status busy'; st.textContent = '⏳ Reading ' + file.name + '...';
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+            const wsName = wb.SheetNames.find(n => n.toUpperCase().includes('OPEN ORDER')) || wb.SheetNames[0];
+            const ws = wb.Sheets[wsName];
+            const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+            // Find header row: contains 'PAKET ITEM#'
+            let hIdx = -1;
+            for (let i = 0; i < Math.min(20, raw.length); i++) {
+                if ((raw[i]||[]).some(c => String(c||'').toUpperCase().includes('PAKET ITEM'))) { hIdx = i; break; }
+            }
+            if (hIdx < 0) throw new Error("Couldn't find header row with 'PAKET ITEM#'");
+            const headers = raw[hIdx].map(h => String(h||'').replace(/\n/g,' ').trim().toUpperCase());
+            const col = name => headers.findIndex(h => h.includes(name));
+            const cCust = col('CUSTOMER'), cDue = col('PAKET DUE'), cItem = col('PAKET ITEM'),
+                  cDesc = col('DESCRIPTION'), cStatus = col('STATUS'), cType = col('TYPE'),
+                  cMach = col('MACHINE'), cSize = col('SIZE'), cPO = col('CUSTOMER PO'),
+                  cQtyLeft = col('QTY LEFT'), cQtyPO = col('PO QTY'), cNotes = col('PRODUCTION NOTES');
+
+            jobs = [];
+            let id = 0;
+            for (let i = hIdx+1; i < raw.length; i++) {
+                const r = raw[i];
+                if (!r || !r[cItem]) continue;
+                const status = String(r[cStatus]||'').trim().toUpperCase();
+                if (['COMPLETE','SHIPPED'].includes(status)) continue;
+                const item = cleanSKU(r[cItem]);
+                if (!item || item.length < 3) continue;
+                const due = parseDue(r[cDue]);
+                let qtyLeft = parseFloat(String(r[cQtyLeft]||'').replace(/[^\d.]/g,''));
+                if (isNaN(qtyLeft) || qtyLeft <= 0) {
+                    qtyLeft = parseFloat(String(r[cQtyPO]||'').replace(/[^\d.]/g,'')) || 0;
+                }
+                const machine = String(r[cMach]||'').trim().toUpperCase();
+                const compound = isCompoundItem(item, machine);
+                jobs.push({
+                    id: 'j' + (id++),
+                    customer: String(r[cCust]||'').split('\n')[0].trim(),
+                    item, desc: String(r[cDesc]||'').substring(0,80),
+                    status, type: String(r[cType]||'').trim(),
+                    machine, size: String(r[cSize]||'').trim(),
+                    po: String(r[cPO]||'').trim(),
+                    qtyLeft, due: due.date ? dayKey(due.date) : null, special: due.special,
+                    notes: String(r[cNotes]||'').substring(0,120),
+                    compound,
+                    // schedule state:
+                    line: null, startDay: null, shifts: 0, locked: false,
+                });
+            }
+            st.className = 'upload-status ok';
+            st.textContent = '✅ Parsed ' + jobs.length + ' open orders from ' + file.name + ' — drafting schedule...';
+            buildWorkDays();
+            autoSchedule();
+            renderAll();
+            document.getElementById('headerSub').textContent = orderFileName + ' · ' + jobs.length + ' open orders · today: ' + fmtDay(todayMidnight());
+        } catch(err) {
+            st.className = 'upload-status err';
+            st.textContent = '❌ ' + err.message;
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// Drag & drop upload
+const uz = document.getElementById('uploadZone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('dragover'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('dragover'));
+uz.addEventListener('drop', e => { e.preventDefault(); uz.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]); });
+
+// ━━━━━━━━ SHIFT ESTIMATION ━━━━━━━━
+function lookupStats(item) {
+    // Try full cleaned SKU first (e.g. DAPBAB-04V2), then base (DAPBAB-04)
+    const full = cleanSKU(item);
+    if (skuStats[full]) return skuStats[full];
+    const base = baseSKU(item);
+    if (skuStats[base]) return skuStats[base];
+    // Try base + common version suffixes
+    for (const suf of ['V1','V2']) {
+        if (skuStats[base + suf]) return skuStats[base + suf];
+    }
+    return null;
+}
+function estimateShifts(job) {
+    if (job.compound) {
+        // Compounding: assume 1 shift per batch; large qty (>20k lbs) = 2 shifts
+        if (job.qtyLeft > 20000) return 2;
+        return 1;
+    }
+    const stats = lookupStats(job.item);
+    if (!stats || !stats.med5 || stats.med5 <= 0) return 1;
+    const perShift = stats.med5; // median output of last 5 shifts (more robust than avg)
+    return Math.max(1, Math.min(12, Math.ceil(job.qtyLeft / perShift)));
+}
+function statsFor(job) { return lookupStats(job.item); }
+
+
+// ━━━━━━━━ MAINTENANCE ADVISOR ━━━━━━━━
+const MAINT_MAP = [
+    [/label|wrinkle/i, 'Have Maintenance inspect & calibrate the labeler (feed, tension, wrinkling)'],
+    [/fill(er)?|weight/i, 'Check the filler — verify fill weights and flow-meter calibration'],
+    [/capper|cap torque|chuck|caps? (jam|issue)/i, 'Inspect capper chucks & torque settings'],
+    [/printer|coder|ink|date code/i, 'Service the printer/coder — clean printheads, stock ink'],
+    [/pump|pulley|hopper/i, 'PM the pump/hopper drive — inspect pulley, seals & pressure'],
+    [/chain|timing|sync/i, 'Check chain drive timing & tension'],
+    [/film|seal|photo ?eye/i, 'Inspect film feed, seal jaws & photo-eye alignment'],
+    [/conveyor|jam/i, 'Clear & align conveyor transitions and guide rails'],
+    [/leak/i, 'Trace and repair the leak before the run'],
+    [/material|super ?sack|ran out|waiting/i, 'Confirm materials are staged & verified before this run (supply delays were noted)'],
+    [/nozzle|clog/i, 'Clean/replace nozzles — clogging reported'],
+    [/heat|temperature|temp /i, 'Verify heater/temperature controls'],
+];
+
+function lookupRecent(item) {
+    const full = cleanSKU(item);
+    if (recentRuns[full]) return recentRuns[full];
+    const base = baseSKU(item);
+    if (recentRuns[base]) return recentRuns[base];
+    for (const suf of ['V1','V2']) if (recentRuns[base+suf]) return recentRuns[base+suf];
+    return null;
+}
+
+function maintenanceAdvice(job) {
+    if (job.compound) return null; // fill-line history only
+    const runs = lookupRecent(job.item);
+    if (!runs || !runs.length) return null;
+    const avg = runs.reduce((s,r)=>s+r.e,0) / runs.length;
+    const worst = Math.min(...runs.map(r=>r.e));
+    if (avg >= 75 && worst >= 60) return null; // ran fine recently
+    const notesAll = runs.map(r=>r.t).filter(Boolean);
+    const joined = notesAll.join(' ');
+    const suggestions = [];
+    for (const [re, advice] of MAINT_MAP) {
+        if (re.test(joined) && !suggestions.includes(advice)) suggestions.push(advice);
+    }
+    if (!suggestions.length && notesAll.length) suggestions.push('Review recent downtime notes with Maintenance before scheduling');
+    if (!suggestions.length) suggestions.push('No notes captured — walk the line with Maintenance before this run');
+    return { avg: Math.round(avg*10)/10, worst, n: runs.length, suggestions, notes: notesAll.slice(-3), runs };
+}
+
+// ━━━━━━━━ PRIORITY ━━━━━━━━
+function priorityOf(job) {
+    // Lower = higher priority. ASAP first, then past-due (oldest first), then by due date. ONGOING last.
+    if (job.special === 'ASAP') return -1e12;
+    if (job.special === 'ONGOING') return 1e12;
+    if (!job.due) return 9e11;
+    return new Date(job.due).getTime();
+}
+function isPastDue(job) {
+    return job.due && new Date(job.due) < todayMidnight();
+}
+
+// ━━━━━━━━ AUTO SCHEDULER ━━━━━━━━
+function candidateLines(job) {
+    if (job.compound) {
+        const mc = job.machine;
+        if (mc === 'RIBBON BLENDER') return MACHINE_MAP['RIBBON BLENDER'];
+        return COMP_TANKS;
+    }
+    if (MACHINE_MAP[job.machine]) return MACHINE_MAP[job.machine];
+    // Try partial match
+    for (const key in MACHINE_MAP) {
+        if (job.machine && job.machine.includes(key)) return MACHINE_MAP[key];
+    }
+    return PROD_LINES; // unknown machine → any line
+}
+
+function autoSchedule() {
+    // Reset non-locked
+    jobs.forEach(j => { if (!j.locked) { j.line = null; j.startDay = null; } });
+
+    // load map: line → dayKey → shifts used
+    const load = {};
+    [...PROD_LINES, ...COMP_TANKS].forEach(l => { load[l] = {}; });
+    jobs.filter(j => j.locked && j.line && j.startDay).forEach(j => reserve(j, load));
+
+    // Schedulable: READY TO RUN + RUNNING
+    const schedulable = jobs
+        .filter(j => ['READY TO RUN','RUNNING'].includes(j.status) && !j.locked)
+        .sort((a,b) => priorityOf(a) - priorityOf(b));
+
+    schedulable.forEach(job => {
+        job.shifts = job.shifts || estimateShifts(job);
+        const cands = candidateLines(job);
+        let best = null; // {line, dayIdx, score}
+        for (const line of cands) {
+            for (let di = 0; di < workDays.length; di++) {
+                if (canFit(job, line, di, load)) {
+                    const score = di * 100 + totalLoad(line, load);
+                    if (!best || score < best.score) best = {line, dayIdx: di, score};
+                    break; // earliest day for this line found
+                }
+            }
+        }
+        if (best) {
+            job.line = best.line;
+            job.startDay = dayKey(workDays[best.dayIdx]);
+            reserve(job, load);
+        }
+    });
+}
+
+function daysNeeded(job) { return Math.max(1, Math.ceil((job.shifts||1) / SHIFTS_PER_DAY)); }
+
+function canFit(job, line, dayIdx, load) {
+    const nd = daysNeeded(job);
+    if (dayIdx + nd > workDays.length) return false;
+    let remaining = job.shifts || 1;
+    for (let k = 0; k < nd; k++) {
+        const dk = dayKey(workDays[dayIdx + k]);
+        const used = (load[line] && load[line][dk]) || 0;
+        const todayShifts = Math.min(remaining, SHIFTS_PER_DAY);
+        if (used + todayShifts > SHIFTS_PER_DAY) return false;
+        remaining -= todayShifts;
+    }
+    return true;
+}
+
+function reserve(job, load) {
+    if (!job.line || !job.startDay) return;
+    const startIdx = workDays.findIndex(d => dayKey(d) === job.startDay);
+    if (startIdx < 0) return;
+    let remaining = job.shifts || 1;
+    for (let k = 0; k < daysNeeded(job); k++) {
+        if (startIdx + k >= workDays.length) break;
+        const dk = dayKey(workDays[startIdx + k]);
+        if (!load[job.line]) load[job.line] = {};
+        const todayShifts = Math.min(remaining, SHIFTS_PER_DAY);
+        load[job.line][dk] = ((load[job.line][dk]) || 0) + todayShifts;
+        remaining -= todayShifts;
+    }
+}
+
+function totalLoad(line, load) {
+    return Object.values(load[line]||{}).reduce((a,b)=>a+b,0);
+}
+
+function clearBoard() {
+    jobs.forEach(j => { if (!j.locked) { j.line = null; j.startDay = null; } });
+    renderAll();
+}
+
+// ━━━━━━━━ RENDER ━━━━━━━━
+function renderAll() {
+    renderKPIs();
+    renderGantt();
+    renderBacklog();
+    ['kpiStrip','toolbar','ganttWrap','backlogWrap'].forEach(id => document.getElementById(id).style.display = '');
+    document.getElementById('kpiStrip').style.display = 'grid';
+}
+
+function renderKPIs() {
+    const past = jobs.filter(isPastDue);
+    const pastValue = past.length;
+    const oldest = past.sort((a,b) => new Date(a.due) - new Date(b.due))[0];
+    document.getElementById('kPast').textContent = pastValue;
+    document.getElementById('kPastSub').textContent = oldest ? 'oldest: ' + oldest.due + ' (' + oldest.item + ')' : 'none 🎉';
+    document.getElementById('kReady').textContent = jobs.filter(j => j.status === 'READY TO RUN').length;
+    document.getElementById('kWait').textContent = jobs.filter(j => j.status === 'WAITING ON SUB-C').length;
+    document.getElementById('kComp').textContent = jobs.filter(j => j.compound).length;
+    const schedShifts = jobs.filter(j => j.line && j.startDay).reduce((s,j) => s + (j.shifts||1), 0);
+    document.getElementById('kShifts').textContent = schedShifts;
+}
+
+function renderGantt() {
+    const g = document.getElementById('gantt');
+    const nCols = workDays.length + 1;
+    g.style.gridTemplateColumns = '190px repeat(' + workDays.length + ', minmax(110px, 1fr))';
+    let h = '';
+
+    // Header row
+    h += '<div class="g-head line-col">LINE / RESOURCE</div>';
+    const tk = dayKey(todayMidnight());
+    workDays.forEach(d => {
+        h += '<div class="g-head' + (dayKey(d)===tk?' today':'') + '">' + fmtDay(d) + '</div>';
+    });
+
+    // Production section
+    h += '<div class="g-section" style="grid-column:1 / span ' + nCols + ';">🏭 Production Lines</div>';
+    PROD_LINES.forEach(line => { h += lineRow(line, false); });
+
+    // Compounding section
+    h += '<div class="g-section compound" style="grid-column:1 / span ' + nCols + ';">🧪 Compounding — Tanks &amp; Blenders</div>';
+    COMP_TANKS.forEach(t => { h += lineRow(t, true); });
+
+    g.innerHTML = h;
+    attachDnD();
+}
+
+function lineRow(line, isComp) {
+    let h = '<div class="g-line">' + line + '<span class="cap">' + SHIFTS_PER_DAY + ' sh/day</span></div>';
+    const tk = dayKey(todayMidnight());
+    workDays.forEach((d, di) => {
+        const dk = dayKey(d);
+        h += '<div class="g-cell' + (dk===tk?' today':'') + '" data-line="' + line + '" data-day="' + dk + '">';
+        // jobs starting on this line+day
+        jobs.filter(j => j.line === line && j.startDay === dk).forEach(j => {
+            h += jobBlock(j, false);
+        });
+        // continuation markers for multi-day jobs
+        jobs.filter(j => j.line === line && j.startDay && j.startDay !== dk).forEach(j => {
+            const si = workDays.findIndex(x => dayKey(x) === j.startDay);
+            if (si >= 0 && di > si && di < si + daysNeeded(j)) h += jobBlock(j, true);
+        });
+        h += '</div>';
+    });
+    return h;
+}
+
+function jobBlock(j, isCont) {
+    let cls = 'job ' + (j.compound ? 'job--compound' : 'job--fill');
+    if (j.special === 'ASAP') cls += ' job--asap';
+    if (isPastDue(j)) cls += ' job--pastdue';
+    if (j.locked) cls += ' job--locked';
+    if (isCont) cls += ' job--cont';
+    const dueTxt = j.special || (j.due ? j.due.substring(5).replace('-','/') : '—');
+    const maint = maintenanceAdvice(j);
+    return '<div class="' + cls + '" draggable="' + (!isCont) + '" data-jid="' + j.id + '" onclick="openModal(\'' + j.id + '\')">' +
+        (j.locked ? '<span class="j-badge">🔒</span>' : '') +
+        '<div class="j-sku">' + (maint ? '⚠ ' : '') + j.item + (isCont ? ' ⟶' : '') + '</div>' +
+        '<div class="j-meta">' + (isCont ? 'continues' : j.customer.substring(0,18) + ' · ' + (j.shifts||1) + ' sh · due ' + dueTxt) + '</div>' +
+        '</div>';
+}
+
+function renderBacklog() {
+    const el = document.getElementById('backlogGrid');
+    const backlog = jobs.filter(j => !j.line || !j.startDay)
+        .sort((a,b) => priorityOf(a) - priorityOf(b));
+    if (!backlog.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">Everything is scheduled 🎉</div>'; return; }
+    el.innerHTML = backlog.map(j => {
+        const pill = j.status === 'WAITING ON SUB-C' ? 'pill-subc' : j.status === 'MICRO' ? 'pill-micro' :
+                     j.status === 'HOLD' ? 'pill-hold' : j.status === 'PENDING' ? 'pill-pending' :
+                     j.status === 'RUNNING' ? 'pill-running' : 'pill-ready';
+        const dueTxt = j.special || j.due || 'no date';
+        const pd = isPastDue(j) ? ' style="border-left-color:var(--accent-red);"' : '';
+        const blMaint = maintenanceAdvice(j);
+        return '<div class="bl-job" draggable="true" data-jid="' + j.id + '"' + pd + ' onclick="openModal(\'' + j.id + '\')">' +
+            '<div class="j-sku">' + (blMaint ? '⚠ ' : '') + j.item + (j.compound ? ' 🧪' : '') + '</div>' +
+            '<div class="j-meta">' + j.customer + ' · qty ' + fmt(j.qtyLeft) + ' · due ' + dueTxt + '</div>' +
+            '<span class="status-pill ' + pill + '">' + j.status + '</span></div>';
+    }).join('');
+    attachDnD();
+}
+
+// ━━━━━━━━ DRAG & DROP ━━━━━━━━
+let dragJobId = null;
+function attachDnD() {
+    document.querySelectorAll('[draggable="true"][data-jid]').forEach(elm => {
+        elm.addEventListener('dragstart', e => {
+            dragJobId = elm.dataset.jid;
+            elm.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        elm.addEventListener('dragend', () => { elm.classList.remove('dragging'); });
+    });
+    document.querySelectorAll('.g-cell').forEach(cell => {
+        cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('dragover'); });
+        cell.addEventListener('dragleave', () => cell.classList.remove('dragover'));
+        cell.addEventListener('drop', e => {
+            e.preventDefault(); cell.classList.remove('dragover');
+            if (!dragJobId) return;
+            const j = jobs.find(x => x.id === dragJobId);
+            if (!j) return;
+            j.line = cell.dataset.line;
+            j.startDay = cell.dataset.day;
+            if (!j.shifts) j.shifts = estimateShifts(j);
+            dragJobId = null;
+            renderAll();
+        });
+    });
+    // Drop on backlog = unschedule
+    const bw = document.getElementById('backlogWrap');
+    bw.addEventListener('dragover', e => e.preventDefault());
+    bw.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragJobId) return;
+        const j = jobs.find(x => x.id === dragJobId);
+        if (j) { j.line = null; j.startDay = null; j.locked = false; }
+        dragJobId = null;
+        renderAll();
+    });
+}
+
+// ━━━━━━━━ JOB MODAL ━━━━━━━━
+function openModal(jid) {
+    const j = jobs.find(x => x.id === jid);
+    if (!j) return;
+    const stats = statsFor(j);
+    const lines = j.compound ? COMP_TANKS : PROD_LINES;
+    const recShifts = estimateShifts(j);
+    const perShift = stats ? (stats.med5 || stats.avg5) : null;
+
+    let statsHtml = '';
+    if (stats && !j.compound) {
+        statsHtml = '<div class="m-stats">' +
+            '📊 <strong>Firebase Production History</strong> (matched: ' + (skuStats[cleanSKU(j.item)] ? cleanSKU(j.item) : baseSKU(j.item)) + ')<br>' +
+            'Median output / shift: <strong>' + fmt(stats.med5) + '</strong> · Avg: <strong>' + fmt(stats.avg5) + '</strong><br>' +
+            'Avg staffing: <strong>' + stats.staff + ' people/shift</strong> · Avg efficiency: <strong>' + stats.eff + '%</strong>' +
+            '</div>' +
+            '<div class="rec-box">💡 Recommendation: <strong>' + recShifts + ' shift' + (recShifts>1?'s':'') + '</strong> — ' +
+            fmt(j.qtyLeft) + ' units ÷ ' + fmt(perShift) + ' per shift' +
+            (stats.staff ? ' · plan ~' + Math.round(stats.staff) + ' operators/shift' : '') + '</div>';
+    } else if (j.compound) {
+        statsHtml = '<div class="m-stats">🧪 <strong>Compounding job</strong> — batch/blend required before filling.<br>' +
+            'Qty: <strong>' + fmt(j.qtyLeft) + ' lbs</strong> · Assign to a tank or ribbon blender.</div>' +
+            '<div class="rec-box">💡 Recommendation: <strong>' + recShifts + ' shift' + (recShifts>1?'s':'') + '</strong>' + (j.qtyLeft > 20000 ? ' (large batch >20k lbs)' : '') + '</div>';
+    } else {
+        statsHtml = '<div class="m-stats">⚠ No production history found for <strong>' + baseSKU(j.item) + '</strong> — using 1 shift default. Adjust below.</div>';
+    }
+
+    // Maintenance advisor panel
+    const maint = maintenanceAdvice(j);
+    let maintHtml = '';
+    if (maint) {
+        maintHtml = '<div style="background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.25); border-radius:8px; padding:12px 14px; margin:10px 0; font-size:12px;">' +
+            '<div style="color:var(--accent-red); font-weight:700; margin-bottom:6px;">⚠ Recent Performance Alert — last ' + maint.n + ' runs averaged ' + maint.avg + '% (worst ' + maint.worst + '%)</div>' +
+            '<div style="color:var(--text-primary); font-weight:600; margin-bottom:4px;">Suggested before this run:</div>' +
+            maint.suggestions.map(s => '<div style="color:var(--text-secondary); margin-bottom:3px;">🔧 ' + s + '</div>').join('') +
+            (maint.notes.length ? '<div style="margin-top:8px; color:var(--text-dim); font-size:11px;">Recent notes:</div>' +
+                maint.notes.map(n => '<div style="color:var(--text-dim); font-size:11px; font-style:italic;">“' + n + '”</div>').join('') : '') +
+            '</div>';
+    }
+    const dayOpts = workDays.map(d => '<option value="' + dayKey(d) + '"' + (j.startDay===dayKey(d)?' selected':'') + '>' + fmtDay(d) + '</option>').join('');
+    const lineOpts = '<option value="">— unscheduled —</option>' + lines.map(l => '<option' + (j.line===l?' selected':'') + '>' + l + '</option>').join('');
+
+    document.getElementById('modalBox').innerHTML =
+        '<h3>' + j.item + (j.compound ? ' 🧪' : '') + '</h3>' +
+        '<div class="m-cust">' + j.customer + ' · PO ' + (j.po||'—') + ' · ' + j.status + (j.due ? ' · due ' + j.due : '') + (j.special ? ' · ' + j.special : '') + '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">' + (j.desc||'') + '</div>' +
+        (j.notes ? '<div style="font-size:11px;color:var(--accent-yellow);margin-bottom:10px;">📝 ' + j.notes + '</div>' : '') +
+        statsHtml + maintHtml +
+        '<div class="m-row">' +
+            '<div class="m-field"><label>' + (j.compound?'Tank / Blender':'Production Line') + '</label><select id="mLine">' + lineOpts + '</select></div>' +
+            '<div class="m-field"><label>Start Day</label><select id="mDay">' + dayOpts + '</select></div>' +
+        '</div>' +
+        '<div class="m-row">' +
+            '<div class="m-field"><label>Shifts</label><input type="number" id="mShifts" min="1" max="30" value="' + (j.shifts||recShifts) + '"></div>' +
+            '<div class="m-field"><label>Lock (survives re-draft)</label><select id="mLock"><option value="0"' + (!j.locked?' selected':'') + '>Unlocked</option><option value="1"' + (j.locked?' selected':'') + '>🔒 Locked</option></select></div>' +
+        '</div>' +
+        '<div class="m-actions">' +
+            '<button class="btn" onclick="closeModal()">Cancel</button>' +
+            '<button class="btn btn--red" onclick="unscheduleJob(\'' + j.id + '\')">Unschedule</button>' +
+            '<button class="btn btn--primary" onclick="applyModal(\'' + j.id + '\')">Apply</button>' +
+        '</div>';
+    document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function applyModal(jid) {
+    const j = jobs.find(x => x.id === jid);
+    if (!j) return;
+    j.line = document.getElementById('mLine').value || null;
+    j.startDay = j.line ? document.getElementById('mDay').value : null;
+    j.shifts = Math.max(1, parseInt(document.getElementById('mShifts').value) || 1);
+    j.locked = document.getElementById('mLock').value === '1';
+    closeModal();
+    renderAll();
+}
+function unscheduleJob(jid) {
+    const j = jobs.find(x => x.id === jid);
+    if (j) { j.line = null; j.startDay = null; j.locked = false; }
+    closeModal();
+    renderAll();
+}
+
+// ━━━━━━━━ FIREBASE: SKU STATS + SCHEDULE PERSISTENCE ━━━━━━━━
+
+function refreshFirebaseData() {
+    if (!fbReady) return;
+    // SKU stats
+    fbDb.ref('paket-dashboard/latest/dashboardData/skus').once('value').then(snap => {
+        const skus = snap.val();
+        if (skus) {
+            for (const [sku, d] of Object.entries(skus)) {
+                skuStats[sku] = {
+                    avg5: d.avg_output_last5 || d.avg_output || 0,
+                    med5: d.median_output_last5 || d.avg_output_last5 || 0,
+                    staff: d.avg_staffing || 4,
+                    eff: d.avg_eff || 75,
+                };
+            }
+            console.log('SKU stats refreshed from Firebase:', Object.keys(skus).length, 'SKUs');
+        }
+    }).catch(e => console.warn('Could not load SKU stats from Firebase', e));
+    // Recent runs (for maintenance advisor) — last 5 per SKU from raw rows
+    fbDb.ref('paket-dashboard/latest/rawRows').once('value').then(snap => {
+        const rows = snap.val();
+        if (rows && rows.length) {
+            const bySku = {};
+            [...rows].sort((a,b) => String(a.d).localeCompare(String(b.d))).forEach(r => {
+                if (!bySku[r.i]) bySku[r.i] = [];
+                bySku[r.i].push(r);
+            });
+            const fresh = {};
+            for (const [sku, rs] of Object.entries(bySku)) {
+                fresh[sku] = rs.slice(-5).map(r => ({ e: Math.round(r.e*1000)/10, t: (r.t||'').substring(0,140), d: r.d, l: r.l||'' }));
+            }
+            recentRuns = fresh;
+            console.log('Recent-run history refreshed from Firebase:', Object.keys(fresh).length, 'SKUs');
+            if (jobs.length) renderAll(); // refresh ⚠ badges with newest data
+        }
+    }).catch(e => console.warn('Could not load recent runs from Firebase', e));
+}
+
+function initApp() {
+    buildWorkDays();
+    if (fbReady) {
+        document.getElementById('fbBadge').className = 'fb-badge fb-on';
+        document.getElementById('fbBadge').textContent = 'FIREBASE: CONNECTED';
+        refreshFirebaseData();
+        // Offer saved schedule
+        loadSavedSchedule(false);
+    }
+}
+
+function saveSchedule() {
+    if (!fbReady) { alert('Firebase not connected — cannot save.'); return; }
+    if (!jobs.length) { alert('Nothing to save. Upload an order report first.'); return; }
+    const payload = {
+        jobs, workDays: workDays.map(dayKey), orderFileName,
+        savedAt: new Date().toISOString(),
+    };
+    fbDb.ref('paket-scheduler/latest').set(payload)
+        .then(() => {
+            const st = document.getElementById('uploadStatus');
+            st.className = 'upload-status ok';
+            st.textContent = '✅ Schedule saved to Firebase — ' + new Date().toLocaleString();
+        })
+        .catch(e => alert('Save failed: ' + e.message));
+}
+
+function loadSavedSchedule(force) {
+    if (!fbReady) { if (force) alert('Firebase not connected.'); return; }
+    fbDb.ref('paket-scheduler/latest').once('value').then(snap => {
+        const val = snap.val();
+        if (!val || !val.jobs) { if (force) alert('No saved schedule found.'); return; }
+        if (!force && jobs.length) return; // don't clobber freshly uploaded data
+        if (!force) {
+            // silently restore on first load
+        }
+        jobs = val.jobs;
+        if (val.workDays && val.workDays.length) {
+            workDays = val.workDays.map(s => { const d = new Date(s + 'T00:00:00'); return d; });
+        } else buildWorkDays();
+        orderFileName = val.orderFileName || 'saved schedule';
+        document.getElementById('headerSub').textContent = orderFileName + ' · restored from ' + new Date(val.savedAt).toLocaleString();
+        renderAll();
+    }).catch(e => { if (force) alert('Load failed: ' + e.message); });
+}
+</script>
+</body>
+</html>
