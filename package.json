@@ -1,0 +1,17 @@
+{
+  "name": "paket-production-dashboard",
+  "private": true,
+  "description": "Paket Chicago production dashboard and scheduler. Hosted on Firebase.",
+  "scripts": {
+    "test:static": "node tests/static.test.mjs",
+    "test": "node tests/static.test.mjs && firebase emulators:exec --only auth,database,hosting --project paket-production-dashboard-v1 \"node tests/emulator.test.mjs\"",
+    "extract-seed": "python3 scripts/extract-historical-seed.py",
+    "emulators": "firebase emulators:start --only auth,database,hosting --project paket-production-dashboard-v1"
+  },
+  "devDependencies": {
+    "firebase": "^10.12.0",
+    "firebase-admin": "^12.7.0",
+    "firebase-tools": "^13.29.1",
+    "puppeteer-core": "^23.11.1"
+  }
+}
