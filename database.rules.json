@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'microsoft.com'",
+        ".write": false
+      }
+    },
+    "paket-dashboard": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'microsoft.com'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider == 'microsoft.com' && root.child('admins').child(auth.uid).val() == true"
+    },
+    "paket-scheduler": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'microsoft.com'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider == 'microsoft.com' && root.child('admins').child(auth.uid).val() == true"
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

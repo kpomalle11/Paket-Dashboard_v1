@@ -1,0 +1,27 @@
+# Dependencies and local tooling
+node_modules/
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+*-debug.log
+ui-debug.log
+.emulator-data/
+
+# Secrets — never commit these
+.env
+.env.*
+service-account*.json
+*-service-account.json
+*serviceAccount*.json
+
+# Production data. Historical seed is generated locally from git history
+# and imported once by an admin. It must not be committed.
+data/*.json
+data/*.js
+data/historical-seed.json
+*.xlsx
+*.xls
+
+# OS / editor
+.DS_Store
+*.local

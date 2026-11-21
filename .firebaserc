@@ -1,0 +1,5 @@
+{
+  "projects": {
+    "default": "paket-production-dashboard-v1"
+  }
+}
